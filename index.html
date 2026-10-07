@@ -62,7 +62,7 @@
           </select>
 
           <!-- Manage Lotteries Button (+ / -) -->
-          <button id="btnOpenLotteryManager" type="button" class="inline-flex items-center space-x-1 bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded text-xs border border-emerald-500/60 transition" title="จัดการรายชื่อหวย (เพิ่ม / ลบ)">
+          <button id="btnOpenLotteryManager" type="button" class="admin-only inline-flex items-center space-x-1 bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded text-xs border border-emerald-500/60 transition" title="จัดการรายชื่อหวย (เพิ่ม / ลบ)">
             <i data-lucide="list-plus" class="w-3.5 h-3.5"></i>
             <span class="hidden sm:inline">เพิ่ม/ลบ</span>
           </button>
@@ -70,10 +70,10 @@
           <input type="date" id="headerDateInput" class="bg-emerald-900/90 text-white text-xs px-2 py-1 rounded border border-emerald-600 focus:outline-none">
         </div>
 
-        <!-- Action Tools & Supabase Button -->
+        <!-- Action Tools & Auth in Top-Right Corner -->
         <div class="flex items-center space-x-2">
           <!-- Supabase Connection Button -->
-          <button id="btnOpenSupabaseModal" type="button" class="inline-flex items-center space-x-1.5 text-xs bg-emerald-800 hover:bg-emerald-900 text-white px-2.5 py-1.5 rounded border border-emerald-600 transition shadow-sm" title="ตั้งค่าการเชื่อมต่อฐานข้อมูล Supabase (บันทึกอัตโนมัติทุกครั้ง)">
+          <button id="btnOpenSupabaseModal" type="button" class="admin-only inline-flex items-center space-x-1.5 text-xs bg-emerald-800 hover:bg-emerald-900 text-white px-2.5 py-1.5 rounded border border-emerald-600 transition shadow-sm" title="ตั้งค่าการเชื่อมต่อฐานข้อมูล Supabase (บันทึกอัตโนมัติทุกครั้ง)">
             <span id="supabaseStatusDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
             <span id="supabaseStatusLabel" class="hidden sm:inline">Supabase</span>
             <span id="supabaseSyncBadge" class="hidden md:inline-flex text-[10px] bg-emerald-600/80 px-1.5 py-0.5 rounded font-normal text-emerald-100 items-center space-x-0.5">
@@ -82,10 +82,38 @@
             </span>
           </button>
 
-          <button id="btnQuickSample" class="hidden sm:inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded font-medium transition shadow-sm">
+          <button id="btnQuickSample" class="admin-only hidden sm:inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded font-medium transition shadow-sm">
             <i data-lucide="sparkles" class="w-3.5 h-3.5 text-yellow-300"></i>
             <span>โหลดตัวอย่าง</span>
           </button>
+
+          <!-- Top-Right Auth Controls (Login / Logout) -->
+          <div id="authTopRightContainer" class="flex items-center space-x-2">
+            <!-- Guest State (Read Only) -->
+            <div id="guestAuthBadge" class="flex items-center space-x-1.5">
+              <span class="inline-flex items-center space-x-1 text-xs bg-emerald-900/90 text-amber-300 px-2.5 py-1 rounded-lg border border-amber-500/40 font-medium">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span class="hidden sm:inline">โหมดอ่านอย่างเดียว</span>
+              </span>
+              <button id="btnOpenLoginModal" type="button" class="inline-flex items-center space-x-1.5 text-xs bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-3 py-1.5 rounded-lg shadow-sm transition transform active:scale-95" title="เข้าสู่ระบบเพื่อแก้ไขข้อมูล">
+                <i data-lucide="log-in" class="w-3.5 h-3.5 text-slate-900"></i>
+                <span>เข้าสู่ระบบ</span>
+              </button>
+            </div>
+
+            <!-- Logged-in State (Edit Mode) -->
+            <div id="adminAuthBadge" class="hidden items-center space-x-2">
+              <span class="inline-flex items-center space-x-1.5 text-xs bg-emerald-800 text-white px-2.5 py-1 rounded-lg border border-emerald-500 font-semibold shadow-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>poihuay888</span>
+                <span class="text-[10px] bg-emerald-600 px-1.5 py-0.5 rounded text-emerald-100 font-normal">โหมดแก้ไข</span>
+              </span>
+              <button id="btnLogout" type="button" class="inline-flex items-center space-x-1 text-xs bg-rose-700 hover:bg-rose-600 text-white font-bold px-2.5 py-1.5 rounded-lg border border-rose-500/80 shadow-xs transition" title="ออกจากระบบ กลับสู่โหมดอ่านอย่างเดียว">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">ออกจากระบบ</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -120,6 +148,23 @@
     <!-- ========================================== -->
     <section id="tab-input" class="tab-content block space-y-6">
       
+      <!-- Read-Only Mode Banner -->
+      <div id="readOnlyBanner" class="p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div class="flex items-center space-x-3">
+          <div class="p-2 bg-amber-100 rounded-lg text-amber-700">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="font-bold text-sm text-amber-900">โหมดอ่านอย่างเดียว (Read Only Mode)</div>
+            <p class="text-xs text-amber-700">คุณสามารถดูตัวเลขและคัดลอกเลขจากกระดานได้ตามปกติ หากต้องการวางตัวเลข ตัดเลข หรือแก้ไขข้อมูล กรุณาเข้าสู่ระบบ</p>
+          </div>
+        </div>
+        <button type="button" class="btn-trigger-login bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition shadow-xs flex items-center justify-center space-x-1.5 text-xs shrink-0">
+          <i data-lucide="log-in" class="w-4 h-4 text-slate-900"></i>
+          <span>เข้าสู่ระบบเพื่อแก้ไข</span>
+        </button>
+      </div>
+
       <!-- Top Overview Stats -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
@@ -274,7 +319,7 @@
           </div>
 
           <div class="flex items-center space-x-3">
-            <button id="btnSampleHanoi" type="button" class="text-xs text-slate-600 hover:text-emerald-700 underline underline-offset-2">
+            <button id="btnSampleHanoi" type="button" class="admin-only text-xs text-slate-600 hover:text-emerald-700 underline underline-offset-2">
               โหลดตัวอย่างฮานอยพิเศษ (lotterich)
             </button>
           </div>
@@ -282,7 +327,7 @@
 
         <!-- Action Button -->
         <div class="flex justify-end pt-2">
-          <button id="btnAddToBoard" class="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition transform active:scale-95 text-base">
+          <button id="btnAddToBoard" class="admin-only inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition transform active:scale-95 text-base">
             <i data-lucide="layout-grid" class="w-5 h-5"></i>
             <span>✨ นำขึ้นกระดานตัดเลข</span>
           </button>
@@ -368,7 +413,7 @@
             </button>
 
             <!-- Clear Board Button -->
-            <button id="btnClearBoardData" class="inline-flex items-center space-x-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg font-medium transition border border-rose-200" title="ล้างข้อมูลโพยทั้งหมดในกระดาน">
+            <button id="btnClearBoardData" class="admin-only inline-flex items-center space-x-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg font-medium transition border border-rose-200" title="ล้างข้อมูลโพยทั้งหมดในกระดาน">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               <span>ล้างกระดาน</span>
             </button>
@@ -627,6 +672,64 @@
           ปิด
         </button>
       </div>
+
+  <!-- Modal: Login for Edit Mode (เข้าสู่ระบบเพื่อแก้ไขข้อมูล) -->
+  <div id="modalLogin" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 animate-in fade-in duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-emerald-800 to-teal-800 text-white px-5 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2.5">
+          <div class="p-2 bg-white/10 rounded-xl">
+            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-200"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm tracking-wide">เข้าสู่ระบบเพื่อแก้ไขข้อมูล</h3>
+            <p class="text-[11px] text-emerald-200 font-normal">ปลดล็อกโหมดแก้ไขและตัดเลข</p>
+          </div>
+        </div>
+        <button id="btnCloseLoginModal" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form Body -->
+      <form id="formLogin" class="p-5 space-y-4 text-xs" onsubmit="return false;">
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-700 flex items-center space-x-1">
+            <i data-lucide="user" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span>Username (ชื่อผู้ใช้)</span>
+          </label>
+          <input type="text" id="loginUsername" placeholder="poihuay888" autocomplete="username"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold text-slate-800 transition">
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-700 flex items-center space-x-1">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span>Password (รหัสผ่าน)</span>
+          </label>
+          <input type="password" id="loginPassword" placeholder="••••••" autocomplete="current-password"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold text-slate-800 transition">
+        </div>
+
+        <!-- Error Alert -->
+        <div id="loginErrorMsg" class="hidden p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center space-x-1.5">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>
+          <span id="loginErrorText">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="pt-2 flex justify-end space-x-2 border-t border-slate-100">
+          <button type="button" id="btnCloseLoginModal2" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-lg transition">
+            ยกเลิก
+          </button>
+          <button type="submit" id="btnSubmitLogin" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+            <span>เข้าสู่ระบบ</span>
+          </button>
+        </div>
+      </form>
 
     </div>
   </div>

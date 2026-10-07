@@ -15,6 +15,136 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeBoardFilter = 'all'; // 'all' | '3on' | '2on' | '2under'
   let searchDebounceTimer = null;
 
+  // Auth state & constants (poihuay888 / 123456)
+  const AUTH_USERNAME = 'poihuay888';
+  const AUTH_PASSWORD = '123456';
+  const STORAGE_KEY_AUTH = 'poi_auth_user';
+
+  function isUserAdmin() {
+    return localStorage.getItem(STORAGE_KEY_AUTH) === AUTH_USERNAME;
+  }
+
+  function updateAuthUI() {
+    const isAdmin = isUserAdmin();
+    const guestBadge = document.getElementById('guestAuthBadge');
+    const adminBadge = document.getElementById('adminAuthBadge');
+    const readOnlyBanner = document.getElementById('readOnlyBanner');
+
+    if (isAdmin) {
+      document.body.classList.remove('mode-readonly');
+      if (guestBadge) guestBadge.classList.add('hidden');
+      if (adminBadge) {
+        adminBadge.classList.remove('hidden');
+        adminBadge.classList.add('flex');
+      }
+      if (readOnlyBanner) readOnlyBanner.classList.add('hidden');
+    } else {
+      document.body.classList.add('mode-readonly');
+      if (guestBadge) guestBadge.classList.remove('hidden');
+      if (adminBadge) {
+        adminBadge.classList.add('hidden');
+        adminBadge.classList.remove('flex');
+      }
+      if (readOnlyBanner) readOnlyBanner.classList.remove('hidden');
+    }
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Auth Modal Elements & Handlers
+  const modalLogin = document.getElementById('modalLogin');
+  const formLogin = document.getElementById('formLogin');
+  const loginUsername = document.getElementById('loginUsername');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginErrorMsg = document.getElementById('loginErrorMsg');
+  const loginErrorText = document.getElementById('loginErrorText');
+  const btnOpenLoginModal = document.getElementById('btnOpenLoginModal');
+  const btnCloseLoginModal = document.getElementById('btnCloseLoginModal');
+  const btnCloseLoginModal2 = document.getElementById('btnCloseLoginModal2');
+  const btnLogout = document.getElementById('btnLogout');
+
+  function openLoginModal() {
+    if (!modalLogin) return;
+    if (loginUsername) loginUsername.value = '';
+    if (loginPassword) loginPassword.value = '';
+    if (loginErrorMsg) loginErrorMsg.classList.add('hidden');
+    modalLogin.classList.remove('hidden');
+    setTimeout(() => {
+      if (loginUsername) loginUsername.focus();
+    }, 60);
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeLoginModal() {
+    if (modalLogin) modalLogin.classList.add('hidden');
+  }
+
+  if (btnOpenLoginModal) {
+    btnOpenLoginModal.addEventListener('click', openLoginModal);
+  }
+
+  document.querySelectorAll('.btn-trigger-login').forEach(btn => {
+    btn.addEventListener('click', openLoginModal);
+  });
+
+  if (btnCloseLoginModal) {
+    btnCloseLoginModal.addEventListener('click', closeLoginModal);
+  }
+
+  if (btnCloseLoginModal2) {
+    btnCloseLoginModal2.addEventListener('click', closeLoginModal);
+  }
+
+  if (modalLogin) {
+    modalLogin.addEventListener('click', (e) => {
+      if (e.target === modalLogin) closeLoginModal();
+    });
+  }
+
+  function handleLoginSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const u = loginUsername ? loginUsername.value.trim() : '';
+    const p = loginPassword ? loginPassword.value.trim() : '';
+
+    if (u === AUTH_USERNAME && p === AUTH_PASSWORD) {
+      localStorage.setItem(STORAGE_KEY_AUTH, AUTH_USERNAME);
+      closeLoginModal();
+      updateAuthUI();
+      renderBoard();
+      updateDashboardStats();
+      showToast('🎉 เข้าสู่ระบบสำเร็จ! ปลดล็อกโหมดแก้ไขและตัดเลขเรียบร้อย', 'success');
+    } else {
+      if (loginErrorText) {
+        loginErrorText.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง (กรุณากรอก Username และ Password ให้ถูกต้อง)';
+      }
+      if (loginErrorMsg) {
+        loginErrorMsg.classList.remove('hidden');
+      }
+      if (loginPassword) {
+        loginPassword.select();
+        loginPassword.focus();
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  if (formLogin) {
+    formLogin.addEventListener('submit', handleLoginSubmit);
+  }
+  document.getElementById('btnSubmitLogin')?.addEventListener('click', handleLoginSubmit);
+
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      if (confirm('ต้องการออกจากระบบและกลับสู่โหมดอ่านอย่างเดียว (Read Only) ใช่หรือไม่?')) {
+        localStorage.removeItem(STORAGE_KEY_AUTH);
+        updateAuthUI();
+        renderBoard();
+        updateDashboardStats();
+        showToast('🚪 ออกจากระบบเรียบร้อยแล้ว กลับสู่โหมดอ่านอย่างเดียว', 'info');
+      }
+    });
+  }
+
   // DOM Elements
   const headerLotterySelect = document.getElementById('headerLotterySelect');
   const headerDateInput = document.getElementById('headerDateInput');
@@ -104,6 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     listEl.querySelectorAll('.btn-delete-lottery').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (!isUserAdmin()) {
+          showToast('โหมดอ่านอย่างเดียว: ไม่สามารถลบชื่อหวยได้', 'warning');
+          return;
+        }
         const name = btn.getAttribute('data-name');
         if (confirm(`คุณต้องการลบชื่อหวย "${name}" ออกจากระบบใช่หรือไม่?`)) {
           storage.deleteLotteryName(name);
@@ -130,6 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputNewLotteryName = document.getElementById('inputNewLotteryName');
 
   document.getElementById('btnOpenLotteryManager').addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อจัดการชื่อหวย', 'warning');
+      openLoginModal();
+      return;
+    }
     renderLotteryManagerList();
     modalLotteryManager.classList.remove('hidden');
     inputNewLotteryName.value = '';
@@ -146,6 +285,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Add New Lottery Confirm
   function handleAddNewLottery() {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: ไม่สามารถเพิ่มชื่อหวยได้', 'warning');
+      return;
+    }
     const newName = inputNewLotteryName.value.trim();
     if (!newName) {
       showToast('กรุณากรอกชื่อหวยที่ต้องการเพิ่ม', 'warning');
@@ -178,6 +321,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Reset to default lotteries
   document.getElementById('btnResetLotteries').addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: ไม่สามารถรีเซ็ตชื่อหวยได้', 'warning');
+      return;
+    }
     if (confirm('ต้องการคืนค่ารายชื่อหวยทั้งหมดเป็นค่าเริ่มต้นใช่หรือไม่?')) {
       storage.lotteryList = ['ฮานอยพิเศษ', 'ฮานอยปกติ', 'ฮานอย VIP', 'ลาวพัฒนา', 'หวยรัฐบาลไทย', 'ยี่กี', 'หวยหุ้น'];
       storage.saveLotteryList();
@@ -312,14 +459,32 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('โหลดตัวอย่างตัวเลข "ฮานอยพิเศษ (lotterich)" เรียบร้อย', 'info');
   }
 
-  document.getElementById('btnSampleHanoi').addEventListener('click', loadHanoiSample);
-  document.getElementById('btnQuickSample').addEventListener('click', () => {
+  document.getElementById('btnSampleHanoi')?.addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อโหลดตัวอย่าง', 'warning');
+      openLoginModal();
+      return;
+    }
     loadHanoiSample();
-    document.getElementById('btnAddToBoard').click();
+  });
+  document.getElementById('btnQuickSample')?.addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อดำเนินการ', 'warning');
+      openLoginModal();
+      return;
+    }
+    loadHanoiSample();
+    document.getElementById('btnAddToBoard')?.click();
   });
 
   // Action: Add Numbers to Board
   document.getElementById('btnAddToBoard').addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อแก้ไขหรือตัดเลข', 'warning');
+      openLoginModal();
+      return;
+    }
+
     const text = rawNumbersInput.value.trim();
     if (!text) {
       showToast('กรุณาวางตัวเลขก่อนนำขึ้นกระดาน', 'warning');
@@ -541,36 +706,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // Header: Website name cell (left) + Green badge cell (right)
     const headerColsLeft = Math.ceil(gridData.colCount / 2);
     const headerColsRight = Math.floor(gridData.colCount / 2);
+    const isAdmin = isUserAdmin();
 
-    let theadHtml = `
-      <thead>
-        <tr class="bg-slate-50">
-          <th colspan="${headerColsLeft}" class="text-left py-1.5 px-2 font-bold text-slate-800 border border-slate-300 tracking-wide">
-            <div class="flex items-center space-x-1 group">
-              <input type="text" 
-                     value="${escapeHtml(batch.website)}" 
-                     data-id="${batch.id}"
-                     data-field="website"
-                     class="input-batch-header-website font-black text-xs text-slate-800 bg-transparent hover:bg-white focus:bg-white px-1.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition w-full max-w-[150px]"
-                     title="คลิกเพื่อแก้ไขชื่อเว็ป (บันทึกลง Supabase ทันที)">
-              <button type="button" class="btn-open-edit-batch p-1 text-slate-400 hover:text-emerald-700 opacity-40 group-hover:opacity-100 transition" data-id="${batch.id}" title="แก้ไขชื่อเว็ป / ป้ายกำกับ">
-                <i data-lucide="edit-2" class="w-3 h-3"></i>
-              </button>
-            </div>
-          </th>
-          <th colspan="${headerColsRight}" class="text-right py-1.5 px-2 border border-slate-300">
-            <div class="flex items-center justify-end space-x-1 group">
-              <input type="text" 
-                     value="${escapeHtml(batch.badgeText || '30/3')}" 
-                     data-id="${batch.id}"
-                     data-field="badgeText"
-                     class="input-batch-header-badge text-xs font-bold text-center bg-[#22c55e] text-white hover:bg-emerald-600 focus:bg-emerald-600 px-2.5 py-0.5 rounded border border-emerald-500 focus:border-white focus:ring-1 focus:ring-white outline-none transition w-auto max-w-[120px] shadow-sm cursor-text"
-                     title="คลิกเพื่อแก้ไขป้ายกำกับ เช่น 30/3, 40/4 (บันทึกลง Supabase ทันที)">
-            </div>
-          </th>
-        </tr>
-      </thead>
-    `;
+    let theadHtml = '';
+    if (isAdmin) {
+      theadHtml = `
+        <thead>
+          <tr class="bg-slate-50">
+            <th colspan="${headerColsLeft}" class="text-left py-1.5 px-2 font-bold text-slate-800 border border-slate-300 tracking-wide">
+              <div class="flex items-center space-x-1 group">
+                <input type="text" 
+                       value="${escapeHtml(batch.website)}" 
+                       data-id="${batch.id}"
+                       data-field="website"
+                       class="input-batch-header-website font-black text-xs text-slate-800 bg-transparent hover:bg-white focus:bg-white px-1.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition w-full max-w-[150px]"
+                       title="คลิกเพื่อแก้ไขชื่อเว็ป (บันทึกลง Supabase ทันที)">
+                <button type="button" class="btn-open-edit-batch p-1 text-slate-400 hover:text-emerald-700 opacity-40 group-hover:opacity-100 transition" data-id="${batch.id}" title="แก้ไขชื่อเว็ป / ป้ายกำกับ">
+                  <i data-lucide="edit-2" class="w-3 h-3"></i>
+                </button>
+              </div>
+            </th>
+            <th colspan="${headerColsRight}" class="text-right py-1.5 px-2 border border-slate-300">
+              <div class="flex items-center justify-end space-x-1 group">
+                <input type="text" 
+                       value="${escapeHtml(batch.badgeText || '30/3')}" 
+                       data-id="${batch.id}"
+                       data-field="badgeText"
+                       class="input-batch-header-badge text-xs font-bold text-center bg-[#22c55e] text-white hover:bg-emerald-600 focus:bg-emerald-600 px-2.5 py-0.5 rounded border border-emerald-500 focus:border-white focus:ring-1 focus:ring-white outline-none transition w-auto max-w-[120px] shadow-sm cursor-text"
+                       title="คลิกเพื่อแก้ไขป้ายกำกับ เช่น 30/3, 40/4 (บันทึกลง Supabase ทันที)">
+              </div>
+            </th>
+          </tr>
+        </thead>
+      `;
+    } else {
+      theadHtml = `
+        <thead>
+          <tr class="bg-slate-50">
+            <th colspan="${headerColsLeft}" class="text-left py-1.5 px-2 font-bold text-slate-800 border border-slate-300 tracking-wide">
+              <span class="font-black text-xs text-slate-800 px-1 select-text">${escapeHtml(batch.website)}</span>
+            </th>
+            <th colspan="${headerColsRight}" class="text-right py-1.5 px-2 border border-slate-300">
+              <span class="text-xs font-bold text-center bg-[#22c55e] text-white px-2.5 py-0.5 rounded shadow-sm inline-block">${escapeHtml(batch.badgeText || '30/3')}</span>
+            </th>
+          </tr>
+        </thead>
+      `;
+    }
 
     // Rows
     let tbodyHtml = '<tbody class="divide-y divide-slate-200">';
@@ -646,12 +828,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <td colspan="${gridData.colCount}" class="excel-count-cell py-1.5 px-3">
             <div class="flex justify-between items-center text-xs">
               <div class="flex items-center space-x-1">
-                <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50" data-id="${batch.id}" title="ลบตารางนี้">
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                </button>
-                <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-1 rounded hover:bg-emerald-50" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
-                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-                </button>
+                ${isAdmin ? `
+                  <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50" data-id="${batch.id}" title="ลบตารางนี้">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-1 rounded hover:bg-emerald-50" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : ''}
                 <button class="btn-copy-batch-space text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-semibold border border-slate-200" data-id="${batch.id}" title="คัดลอกตัวเลขทั้งหมด คั่นด้วยวรรค (spacebar)">
                   <i data-lucide="copy" class="w-3 h-3 text-slate-500"></i>
                   <span>คัดลอกทั้งหมด</span>
@@ -688,6 +872,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.btn-delete-web-batch').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!isUserAdmin()) {
+          showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อแก้ไขหรือลบตาราง', 'warning');
+          openLoginModal();
+          return;
+        }
         const id = btn.getAttribute('data-id');
         if (confirm('ต้องการลบตารางของเว็ปนี้ใช่หรือไม่?')) {
           storage.deleteBatch(id);
@@ -702,6 +891,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.btn-open-edit-batch').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!isUserAdmin()) {
+          showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อแก้ไขตาราง', 'warning');
+          openLoginModal();
+          return;
+        }
         const id = btn.getAttribute('data-id');
         const batch = storage.session.batches.find(b => b.id === id);
         if (batch) {
@@ -825,6 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let initialVal = input.value.trim();
 
       const commitChange = () => {
+        if (!isUserAdmin()) return;
         const newVal = input.value.trim() || 'เว็ปหลัก';
         if (newVal !== initialVal) {
           const id = input.getAttribute('data-id');
@@ -849,6 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let initialVal = input.value.trim();
 
       const commitChange = () => {
+        if (!isUserAdmin()) return;
         const newVal = input.value.trim() || 'ตัดยอด';
         if (newVal !== initialVal) {
           const id = input.getAttribute('data-id');
@@ -1024,6 +1220,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Clear Board Button
   document.getElementById('btnClearBoardData').addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อแก้ไขหรือล้างกระดาน', 'warning');
+      openLoginModal();
+      return;
+    }
     if (confirm('คุณต้องการล้างข้อมูลกระดานทั้งหมดใช่หรือไม่?')) {
       storage.clearAllBatches();
       renderBoard();
@@ -1041,6 +1242,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const editBatchBadgeText = document.getElementById('editBatchBadgeText');
 
   function openEditBatchModal(batch) {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อแก้ไขตาราง', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!batch || !modalEditBatch) return;
     editBatchId.value = batch.id;
     editBatchWebsite.value = batch.website || '';
@@ -1058,6 +1264,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnCloseEditBatchModal2')?.addEventListener('click', closeEditBatchModal);
 
   document.getElementById('btnSaveEditBatch')?.addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: ไม่สามารถบันทึกการแก้ไขได้', 'warning');
+      return;
+    }
     const id = editBatchId.value;
     const website = editBatchWebsite.value.trim() || 'เว็ปหลัก';
     const badgeText = editBatchBadgeText.value.trim() || '30/3';
@@ -1273,6 +1483,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Open Supabase Modal
   document.getElementById('btnOpenSupabaseModal')?.addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อจัดการ Supabase', 'warning');
+      openLoginModal();
+      return;
+    }
     updateSupabaseStatusUI();
     modalSupabaseConfig.classList.remove('hidden');
     if (window.lucide) lucide.createIcons();
@@ -1285,6 +1500,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Test Supabase Connection
   document.getElementById('btnTestSupabaseConnection')?.addEventListener('click', async () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบก่อนทำการทดสอบ', 'warning');
+      return;
+    }
     const url = inputSupabaseUrl.value.trim();
     const key = inputSupabaseAnonKey.value.trim();
 
@@ -1304,6 +1523,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Save Supabase Configuration
   document.getElementById('btnSaveSupabaseConfig')?.addEventListener('click', async () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: ไม่สามารถแก้ไขการตั้งค่าได้', 'warning');
+      return;
+    }
     const url = inputSupabaseUrl.value.trim();
     const key = inputSupabaseAnonKey.value.trim();
 
@@ -1327,6 +1550,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Disconnect Supabase
   document.getElementById('btnDisconnectSupabase')?.addEventListener('click', () => {
+    if (!isUserAdmin()) {
+      showToast('โหมดอ่านอย่างเดียว: ไม่สามารถแก้ไขการเชื่อมต่อได้', 'warning');
+      return;
+    }
     if (confirm('คุณต้องการตัดการเชื่อมต่อกับ Supabase และกลับไปใช้ระบบออฟไลน์หรือไม่?')) {
       storage.clearSupabaseConfig();
       inputSupabaseUrl.value = '';
@@ -1409,5 +1636,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Load
+  updateAuthUI();
   updateDashboardStats();
+  if (!isUserAdmin()) {
+    switchTab('tab-board');
+  }
 });

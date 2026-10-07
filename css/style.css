@@ -156,3 +156,26 @@ body {
     padding: 1px 3px !important;
   }
 }
+
+/* Read Only Mode Rules */
+body.mode-readonly .admin-only {
+  display: none !important;
+}
+
+body.mode-readonly .input-batch-header-website {
+  pointer-events: none !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  cursor: default !important;
+}
+
+body.mode-readonly .input-batch-header-badge {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+body.mode-readonly .btn-open-edit-batch,
+body.mode-readonly .btn-delete-web-batch {
+  display: none !important;
+}
+
