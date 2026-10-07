@@ -43,7 +43,23 @@ Web Application สำหรับจดโพย**เฉพาะตัวเ�
 
 ---
 
-## 🚀 วิธีเปิดใช้งาน
+## 🚀 วิธีเปิดใช้งาน (Run & Deploy)
 
-1. **เปิดผ่าน batch file (ง่ายที่สุด)**: ดับเบิลคลิกไฟล์ `start.bat`
-2. **เปิดผ่านเบราว์เซอร์โดยตรง**: ดับเบิลคลิกไฟล์ `index.html`
+### 1. เปิดออนไลน์ผ่าน Streamlit Community Cloud (ฟรี 100%)
+สามารถนำขึ้นออนไลน์เพื่อให้คนอื่นใช้งานได้ตลอด 24 ชม. ผ่าน [share.streamlit.io](https://share.streamlit.io):
+1. เข้าไปที่ [share.streamlit.io](https://share.streamlit.io) แล้วล็อกอินด้วย GitHub
+2. กดปุ่ม **"Create app"**
+3. เลือก Repository: `Sukol1996/PoiHuay`
+4. Branch: `main`
+5. Main file path: `app.py`
+6. กด **"Deploy!"** ระบบจะสร้างลิงก์เว็บไซต์ออนไลน์ให้ทันที (เช่น `https://poihuay.streamlit.app`)
+
+---
+
+### 2. รันบนเครื่องคอมพิวเตอร์ (Local)
+- **รันด้วย Streamlit**:
+  ```bash
+  streamlit run app.py
+  ```
+- **รันด้วย Batch file (ดับเบิลคลิก)**: ดับเบิลคลิกไฟล์ `start.bat`
+- **เปิดตรงในเบราว์เซอร์**: ดับเบิลคลิกไฟล์ `index.html`
