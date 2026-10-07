@@ -337,9 +337,15 @@
               <option value="6">6 คอลัมน์</option>
             </select>
 
-            <!-- Copy to Excel button -->
-            <button id="btnCopyExcelBoard" class="inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition shadow-sm">
+            <!-- Copy Numbers (Spacebar) button -->
+            <button id="btnCopySpaceNumbers" class="inline-flex items-center space-x-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition shadow-sm" title="คัดลอกตัวเลขทั้งหมด คั่นด้วยวรรค (spacebar) เช่น 212 231 254">
               <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>คัดลอกตัวเลข (เว้นวรรค)</span>
+            </button>
+
+            <!-- Copy to Excel button -->
+            <button id="btnCopyExcelBoard" class="inline-flex items-center space-x-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition" title="คัดลอกตารางทั้งหมดไปวางใน Excel">
+              <i data-lucide="table" class="w-3.5 h-3.5"></i>
               <span>คัดลอกลง Excel</span>
             </button>
 

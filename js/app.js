@@ -589,11 +589,15 @@ document.addEventListener('DOMContentLoaded', () => {
           <td colspan="${gridData.colCount}" class="excel-count-cell py-1.5 px-3">
             <div class="flex justify-between items-center text-xs">
               <div class="flex items-center space-x-1.5">
-                <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-0.5" data-id="${batch.id}" title="ลบตารางนี้">
+                <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-0.5 rounded hover:bg-rose-50" data-id="${batch.id}" title="ลบตารางนี้">
                   <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
-                <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-0.5" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
+                <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-0.5 rounded hover:bg-emerald-50" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
                   <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                </button>
+                <button class="btn-copy-batch-space text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-semibold border border-slate-200" data-id="${batch.id}" title="คัดลอกตัวเลขตารางนี้ คั่นด้วยวรรค (spacebar) เช่น 212 231 254">
+                  <i data-lucide="copy" class="w-3 h-3 text-emerald-600"></i>
+                  <span>คัดลอกเลข</span>
                 </button>
               </div>
               <div class="flex items-center space-x-1.5">
@@ -637,6 +641,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const batch = storage.session.batches.find(b => b.id === id);
         if (batch) {
           openEditBatchModal(batch);
+        }
+      });
+    });
+
+    // Copy single batch numbers joined with spacebar (เช่น 212 231 254)
+    document.querySelectorAll('.btn-copy-batch-space').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const batch = storage.session.batches.find(b => b.id === id);
+        if (batch && Array.isArray(batch.numbers) && batch.numbers.length > 0) {
+          const spaceText = batch.numbers.join(' ');
+          navigator.clipboard.writeText(spaceText).then(() => {
+            showToast(`คัดลอกตัวเลขเว็ป "${escapeHtml(batch.website)}" (${batch.numbers.length} ตัว คั่นด้วย spacebar) เรียบร้อย!`, 'success');
+          });
+        } else {
+          showToast('ไม่มีตัวเลขในตารางนี้สำหรับคัดลอก', 'warning');
         }
       });
     });
@@ -742,6 +763,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navigator.clipboard.writeText(fullTsv).then(() => {
       showToast('คัดลอกตารางทั้งหมดเรียบร้อย! สามารถกดวาง (Ctrl+V) ใน Excel ได้ทันที', 'success');
+    });
+  });
+
+  // Copy All Numbers on Board joined with Spacebar (เช่น 212 231 254)
+  document.getElementById('btnCopySpaceNumbers')?.addEventListener('click', () => {
+    let batches = storage.session.batches.filter(b => !boardWebsiteFilter.value || b.website === boardWebsiteFilter.value);
+    if (activeBoardFilter && activeBoardFilter !== 'all') {
+      batches = batches.filter(b => b.type === activeBoardFilter);
+    }
+
+    if (batches.length === 0) {
+      showToast('ไม่มีตัวเลขในกระดานสำหรับคัดลอก', 'warning');
+      return;
+    }
+
+    const allNumbers = [];
+    batches.forEach(b => {
+      if (Array.isArray(b.numbers)) {
+        allNumbers.push(...b.numbers);
+      }
+    });
+
+    if (allNumbers.length === 0) {
+      showToast('ไม่มีตัวเลขในกระดานสำหรับคัดลอก', 'warning');
+      return;
+    }
+
+    const spaceSeparated = allNumbers.join(' ');
+    navigator.clipboard.writeText(spaceSeparated).then(() => {
+      showToast(`คัดลอกตัวเลขทั้งหมด ${allNumbers.length} ตัว (คั่นด้วย spacebar) เรียบร้อย!`, 'success');
     });
   });
 
