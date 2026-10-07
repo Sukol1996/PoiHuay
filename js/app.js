@@ -571,15 +571,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Rows
     let tbodyHtml = '<tbody class="divide-y divide-slate-200">';
-    gridData.rows.forEach(row => {
-      tbodyHtml += '<tr>';
+    const rowsPerChunk = Math.max(1, Math.round(50 / gridData.colCount));
+
+    gridData.rows.forEach((row, rowIndex) => {
+      const isDivider = ((rowIndex + 1) % rowsPerChunk === 0) && (rowIndex < gridData.rows.length - 1);
+      const rowClass = isDivider ? 'chunk-divider-row' : '';
+      tbodyHtml += `<tr class="${rowClass}">`;
       row.forEach(cell => {
         if (!cell) {
           tbodyHtml += '<td class="border border-slate-300 bg-slate-50/40 p-1"></td>';
         } else {
           const isMatched = searchQuery && cell.includes(searchQuery);
           tbodyHtml += `
-            <td class="excel-cell font-num border border-slate-300 ${isMatched ? 'highlight-search' : ''}" data-number="${cell}">
+            <td class="excel-cell font-num border border-slate-300 ${isMatched ? 'highlight-search' : ''}" data-number="${cell}" ${isDivider ? 'title="เส้นแบ่งชุดละ 50 ตัว"' : ''}>
               <div class="font-bold text-slate-900 tracking-wider">${cell}</div>
             </td>
           `;
@@ -595,19 +599,27 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <td colspan="${gridData.colCount}" class="excel-count-cell py-1.5 px-3">
             <div class="flex justify-between items-center text-xs">
-              <div class="flex items-center space-x-1.5">
-                <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-0.5 rounded hover:bg-rose-50" data-id="${batch.id}" title="ลบตารางนี้">
+              <div class="flex items-center space-x-1">
+                <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50" data-id="${batch.id}" title="ลบตารางนี้">
                   <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
-                <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-0.5 rounded hover:bg-emerald-50" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
+                <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-1 rounded hover:bg-emerald-50" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
                   <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                 </button>
-                <button class="btn-copy-batch-space text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-semibold border border-slate-200" data-id="${batch.id}" title="คัดลอกตัวเลขตารางนี้ คั่นด้วยวรรค (spacebar) เช่น 212 231 254">
-                  <i data-lucide="copy" class="w-3 h-3 text-emerald-600"></i>
+                <button class="btn-copy-batch-space text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-semibold border border-slate-200" data-id="${batch.id}" title="คัดลอกตัวเลขทั้งหมด คั่นด้วยวรรค (spacebar)">
+                  <i data-lucide="copy" class="w-3 h-3 text-slate-500"></i>
                   <span>คัดลอกเลข</span>
                 </button>
+                <button class="btn-copy-batch-50 text-emerald-700 hover:bg-emerald-100 bg-emerald-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-bold border border-emerald-200" data-id="${batch.id}" title="คัดลอกตัวเลขโดยเว้นบรรทัดคั่นทุกๆ 50 ตัว">
+                  <i data-lucide="copy-check" class="w-3 h-3 text-emerald-600"></i>
+                  <span>คั่น 50 ตัว</span>
+                </button>
+                <button class="btn-open-batch-chunks-50 text-amber-700 hover:bg-amber-100 bg-amber-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-bold border border-amber-200" data-id="${batch.id}" title="เปิดดูและคัดลอกแยกทีละชุด ชุดละ 50 ตัว">
+                  <i data-lucide="layers" class="w-3 h-3 text-amber-600"></i>
+                  <span>แบ่งชุด 50</span>
+                </button>
               </div>
-              <div class="flex items-center space-x-1.5">
+              <div class="flex items-center space-x-1.5 ml-2">
                 <span class="text-slate-500 font-semibold">count</span>
                 <span class="font-black text-slate-800 font-num text-sm">${gridData.totalCount}</span>
               </div>
@@ -665,6 +677,43 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         } else {
           showToast('ไม่มีตัวเลขในตารางนี้สำหรับคัดลอก', 'warning');
+        }
+      });
+    });
+
+    // Copy single batch numbers chunked by 50 (เว้นบรรทัดทุกๆ 50 ตัว)
+    document.querySelectorAll('.btn-copy-batch-50').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const batch = storage.session.batches.find(b => b.id === id);
+        if (batch && Array.isArray(batch.numbers) && batch.numbers.length > 0) {
+          const chunkedText = calculator.formatNumbersChunked(batch.numbers, 50, '\n\n');
+          const chunkCount = Math.ceil(batch.numbers.length / 50);
+          navigator.clipboard.writeText(chunkedText).then(() => {
+            showToast(`คัดลอกตัวเลขเว็ป "${escapeHtml(batch.website)}" (${batch.numbers.length} ตัว แบ่ง ${chunkCount} ชุด คั่นทุก 50 ตัว) เรียบร้อย!`, 'success');
+          });
+        } else {
+          showToast('ไม่มีตัวเลขในตารางนี้สำหรับคัดลอก', 'warning');
+        }
+      });
+    });
+
+    // Open Chunks 50 modal for single batch
+    document.querySelectorAll('.btn-open-batch-chunks-50').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const batch = storage.session.batches.find(b => b.id === id);
+        if (batch && Array.isArray(batch.numbers) && batch.numbers.length > 0) {
+          openChunk50Modal({
+            title: `ชุดตัวเลข: ${batch.website} (${batch.typeName || batch.type})`,
+            subtitle: `หวย: ${storage.session.lotteryName} | เว็ป: ${batch.website} | ป้าย: ${batch.badgeText || '30/3'} | รวม ${batch.numbers.length} ตัว`,
+            numbers: batch.numbers,
+            colCount: parseInt(boardColCountSelect.value, 10) || 10
+          });
+        } else {
+          showToast('ไม่มีตัวเลขในตารางนี้สำหรับแบ่งชุด', 'warning');
         }
       });
     });
@@ -803,6 +852,69 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Copy All Numbers on Board Chunked by 50 (คั่นขึ้นบรรทัดใหม่ทุกๆ 50 ตัว)
+  document.getElementById('btnCopy50Numbers')?.addEventListener('click', () => {
+    let batches = storage.session.batches.filter(b => !boardWebsiteFilter.value || b.website === boardWebsiteFilter.value);
+    if (activeBoardFilter && activeBoardFilter !== 'all') {
+      batches = batches.filter(b => b.type === activeBoardFilter);
+    }
+
+    if (batches.length === 0) {
+      showToast('ไม่มีตัวเลขในกระดานสำหรับคัดลอก', 'warning');
+      return;
+    }
+
+    const allNumbers = [];
+    batches.forEach(b => {
+      if (Array.isArray(b.numbers)) {
+        allNumbers.push(...b.numbers);
+      }
+    });
+
+    if (allNumbers.length === 0) {
+      showToast('ไม่มีตัวเลขในกระดานสำหรับคัดลอก', 'warning');
+      return;
+    }
+
+    const chunkedText = calculator.formatNumbersChunked(allNumbers, 50, '\n\n');
+    const chunkCount = Math.ceil(allNumbers.length / 50);
+    navigator.clipboard.writeText(chunkedText).then(() => {
+      showToast(`คัดลอกตัวเลขทั้งหมด ${allNumbers.length} ตัว (แบ่ง ${chunkCount} ชุด คั่นทุก 50 ตัว) เรียบร้อย!`, 'success');
+    });
+  });
+
+  // Open Modal to Copy 50 Numbers Chunk by Chunk from Toolbar
+  document.getElementById('btnOpenChunk50Modal')?.addEventListener('click', () => {
+    let batches = storage.session.batches.filter(b => !boardWebsiteFilter.value || b.website === boardWebsiteFilter.value);
+    if (activeBoardFilter && activeBoardFilter !== 'all') {
+      batches = batches.filter(b => b.type === activeBoardFilter);
+    }
+
+    if (batches.length === 0) {
+      showToast('ไม่มีตัวเลขในกระดานสำหรับแบ่งชุด', 'warning');
+      return;
+    }
+
+    const allNumbers = [];
+    batches.forEach(b => {
+      if (Array.isArray(b.numbers)) {
+        allNumbers.push(...b.numbers);
+      }
+    });
+
+    if (allNumbers.length === 0) {
+      showToast('ไม่มีตัวเลขในกระดานสำหรับแบ่งชุด', 'warning');
+      return;
+    }
+
+    openChunk50Modal({
+      title: `แบ่งชุดตัวเลขกระดานตัดเลข (รวมทุกเว็ปที่เลือก)`,
+      subtitle: `หวย: ${storage.session.lotteryName} | วันที่: ${storage.session.lotteryDate} | รวม ${allNumbers.length} ตัว`,
+      numbers: allNumbers,
+      colCount: parseInt(boardColCountSelect.value, 10) || 10
+    });
+  });
+
   // Print Board
   document.getElementById('btnPrintBoard').addEventListener('click', () => {
     window.print();
@@ -868,6 +980,145 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       document.getElementById('btnSaveEditBatch')?.click();
     }
+  });
+
+  // ==========================================
+  // Modal Chunk 50 Numbers Logic (แบ่งชุดละ 50 ตัว)
+  // ==========================================
+  const modalChunk50 = document.getElementById('modalChunk50');
+  const chunkModalSubtitle = document.getElementById('chunkModalSubtitle');
+  const chunkListContainer = document.getElementById('chunkListContainer');
+  const chunkSortModeSelect = document.getElementById('chunkSortModeSelect');
+  const btnChunkCopyAllSeparated = document.getElementById('btnChunkCopyAllSeparated');
+
+  let activeChunkData = null; // { title, subtitle, numbers, colCount }
+
+  function openChunk50Modal(data) {
+    if (!modalChunk50 || !data || !data.numbers || data.numbers.length === 0) return;
+    activeChunkData = data;
+    if (chunkModalSubtitle) {
+      chunkModalSubtitle.textContent = data.subtitle || '';
+    }
+    renderChunk50List();
+    modalChunk50.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeChunk50Modal() {
+    if (modalChunk50) modalChunk50.classList.add('hidden');
+  }
+
+  document.getElementById('btnCloseChunk50Modal')?.addEventListener('click', closeChunk50Modal);
+  document.getElementById('btnCloseChunk50Modal2')?.addEventListener('click', closeChunk50Modal);
+
+  function renderChunk50List() {
+    if (!activeChunkData || !chunkListContainer) return;
+    const { numbers, colCount = 10 } = activeChunkData;
+    const mode = chunkSortModeSelect ? chunkSortModeSelect.value : 'sorted';
+
+    let chunks = [];
+    if (mode === 'grid') {
+      const grid = calculator.formatGridColumns(numbers, colCount);
+      const rowsPerChunk = Math.max(1, Math.round(50 / colCount));
+      chunks = calculator.chunkGridByRows(grid, rowsPerChunk);
+    } else {
+      // Default: sorted sequentially
+      const sorted = [...numbers].sort((a, b) => a.localeCompare(b));
+      chunks = calculator.chunkNumbers(sorted, 50);
+    }
+
+    if (chunks.length === 0) {
+      chunkListContainer.innerHTML = '<div class="text-center text-slate-400 py-6">ไม่มีตัวเลข</div>';
+      return;
+    }
+
+    let html = '';
+    let startIdx = 1;
+
+    chunks.forEach((chunk, index) => {
+      const count = chunk.length;
+      const endIdx = startIdx + count - 1;
+      const chunkText = chunk.join(' ');
+
+      html += `
+        <div class="border border-slate-200 rounded-xl p-3.5 bg-white hover:border-emerald-300 transition shadow-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-black text-xs flex items-center justify-center font-num">${index + 1}</span>
+              <span class="font-bold text-slate-800 text-xs">ชุดที่ ${index + 1} (ตัวที่ ${startIdx} - ${endIdx})</span>
+              <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-num">${count} ตัว</span>
+            </div>
+            <button class="btn-copy-individual-chunk inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition shadow-xs" data-chunk-index="${index}">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>คัดลอกชุดที่ ${index + 1}</span>
+            </button>
+          </div>
+          <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100 font-num text-xs text-slate-700 tracking-wider font-semibold leading-relaxed break-words select-all max-h-24 overflow-y-auto">
+            ${chunkText}
+          </div>
+        </div>
+      `;
+
+      startIdx += count;
+    });
+
+    chunkListContainer.innerHTML = html;
+
+    // Attach click events for individual chunk copy buttons
+    chunkListContainer.querySelectorAll('.btn-copy-individual-chunk').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-chunk-index'), 10);
+        const targetChunk = chunks[idx];
+        if (targetChunk && targetChunk.length > 0) {
+          const text = targetChunk.join(' ');
+          navigator.clipboard.writeText(text).then(() => {
+            const originalHtml = btn.innerHTML;
+            btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            btn.classList.add('bg-emerald-800');
+            btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>✓ คัดลอกแล้ว</span>`;
+            if (window.lucide) lucide.createIcons();
+
+            showToast(`คัดลอกชุดที่ ${idx + 1} (${targetChunk.length} ตัว) แล้ว! สามารถวางในเว็บแทงหวยได้ทันที`, 'success');
+
+            setTimeout(() => {
+              btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+              btn.classList.remove('bg-emerald-800');
+              btn.innerHTML = originalHtml;
+              if (window.lucide) lucide.createIcons();
+            }, 2500);
+          });
+        }
+      });
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Handle Sort Mode Change in Modal
+  chunkSortModeSelect?.addEventListener('change', () => {
+    renderChunk50List();
+  });
+
+  // Handle Copy All Separated Button in Modal
+  btnChunkCopyAllSeparated?.addEventListener('click', () => {
+    if (!activeChunkData || !activeChunkData.numbers) return;
+    const { numbers, colCount = 10 } = activeChunkData;
+    const mode = chunkSortModeSelect ? chunkSortModeSelect.value : 'sorted';
+
+    let chunks = [];
+    if (mode === 'grid') {
+      const grid = calculator.formatGridColumns(numbers, colCount);
+      const rowsPerChunk = Math.max(1, Math.round(50 / colCount));
+      chunks = calculator.chunkGridByRows(grid, rowsPerChunk);
+    } else {
+      const sorted = [...numbers].sort((a, b) => a.localeCompare(b));
+      chunks = calculator.chunkNumbers(sorted, 50);
+    }
+
+    const fullChunkedText = chunks.map(c => c.join(' ')).join('\n\n');
+    navigator.clipboard.writeText(fullChunkedText).then(() => {
+      showToast(`คัดลอกทั้งหมด ${numbers.length} ตัว (แบ่ง ${chunks.length} ชุด คั่นบรรทัดทุก 50 ตัว) เรียบร้อย!`, 'success');
+    });
   });
 
   // ==========================================

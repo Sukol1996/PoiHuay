@@ -68,6 +68,58 @@ class LotteryCalculator {
     tsv += `count\t${gridData.totalCount}\n`;
     return tsv;
   }
+
+  /**
+   * Chunks an array of items into groups of given size (default 50)
+   * @param {Array} list 
+   * @param {number} size 
+   * @returns {Array<Array>}
+   */
+  chunkNumbers(list, size = 50) {
+    if (!Array.isArray(list) || list.length === 0) return [];
+    const chunks = [];
+    for (let i = 0; i < list.length; i += size) {
+      chunks.push(list.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  /**
+   * Formats numbers into chunks separated by space inside, and custom delimiter between chunks
+   * @param {Array<string>} list 
+   * @param {number} size 
+   * @param {string} delimiter 
+   * @returns {string}
+   */
+  formatNumbersChunked(list, size = 50, delimiter = '\n\n') {
+    const chunks = this.chunkNumbers(list, size);
+    return chunks.map(c => c.join(' ')).join(delimiter);
+  }
+
+  /**
+   * Groups grid data rows into chunks (e.g. 5 rows = 50 numbers if 10 columns)
+   * @param {object} gridData 
+   * @param {number} rowsPerChunk 
+   * @returns {Array<Array<string>>}
+   */
+  chunkGridByRows(gridData, rowsPerChunk = 5) {
+    if (!gridData || !gridData.rows || gridData.rows.length === 0) return [];
+    const chunks = [];
+    for (let r = 0; r < gridData.rows.length; r += rowsPerChunk) {
+      const sliceRows = gridData.rows.slice(r, r + rowsPerChunk);
+      const numbers = [];
+      sliceRows.forEach(row => {
+        row.forEach(cell => {
+          if (cell) numbers.push(cell);
+        });
+      });
+      if (numbers.length > 0) {
+        chunks.push(numbers);
+      }
+    }
+    return chunks;
+  }
 }
 
 window.LotteryCalculator = LotteryCalculator;
+

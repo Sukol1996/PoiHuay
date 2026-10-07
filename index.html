@@ -338,9 +338,21 @@
             </select>
 
             <!-- Copy Numbers (Spacebar) button -->
-            <button id="btnCopySpaceNumbers" class="inline-flex items-center space-x-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition shadow-sm" title="คัดลอกตัวเลขทั้งหมด คั่นด้วยวรรค (spacebar) เช่น 212 231 254">
+            <button id="btnCopySpaceNumbers" class="inline-flex items-center space-x-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition" title="คัดลอกตัวเลขทั้งหมด คั่นด้วยวรรค (spacebar) เช่น 212 231 254">
               <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-              <span>คัดลอกตัวเลข (เว้นวรรค)</span>
+              <span>คัดลอกเลข (เว้นวรรค)</span>
+            </button>
+
+            <!-- Copy Numbers (Separated by 50) button -->
+            <button id="btnCopy50Numbers" class="inline-flex items-center space-x-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-sm" title="คัดลอกตัวเลขทั้งหมดโดยเว้นบรรทัดคั่นทุกๆ 50 ตัว (สำหรับเว็ปที่จำกัด 50 ตัว)">
+              <i data-lucide="copy-check" class="w-3.5 h-3.5"></i>
+              <span>คัดลอกคั่น 50 ตัว</span>
+            </button>
+
+            <!-- Open Chunks 50 Modal button -->
+            <button id="btnOpenChunk50Modal" class="inline-flex items-center space-x-1.5 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1.5 rounded-lg font-semibold transition" title="เปิดหน้าต่างเลือกคัดลอกทีละชุด ชุดละ 50 ตัว สำหรับวางในเว็บหวย">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-600"></i>
+              <span>แบ่งชุดละ 50</span>
             </button>
 
             <!-- Copy to Excel button -->
@@ -560,6 +572,62 @@
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Copy Chunks of 50 Numbers (คัดลอกแบ่งชุดละ 50 ตัว) -->
+  <div id="modalChunk50" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-emerald-700 to-teal-800 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="p-1.5 bg-white/10 rounded-lg">
+            <i data-lucide="layers" class="w-5 h-5 text-emerald-200"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm tracking-wide">คัดลอกตัวเลขแบ่งชุดละ 50 ตัว</h3>
+            <p id="chunkModalSubtitle" class="text-[11px] text-emerald-100 font-normal">สำหรับวางในเว็ปแทงหวยที่จำกัดไม่เกิน 50 ตัวต่อครั้ง</p>
+          </div>
+        </div>
+        <button id="btnCloseChunk50Modal" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Toolbar / Quick Actions inside Modal -->
+      <div class="px-5 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0 text-xs">
+        <div class="flex items-center space-x-2">
+          <span class="font-bold text-slate-700">การเรียงตัวเลข:</span>
+          <select id="chunkSortModeSelect" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-emerald-500 font-medium text-slate-700">
+            <option value="sorted">เรียงตามลำดับเลข (1 - 50, 51 - 100...)</option>
+            <option value="grid">ตามบล็อกตาราง (บล็อกละ 5 แถว = 50 ตัว)</option>
+          </select>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="btnChunkCopyAllSeparated" class="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow-xs transition">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>คัดลอกทั้งหมด (คั่นบรรทัดทุก 50 ตัว)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Chunks List Body (Scrollable) -->
+      <div id="chunkListContainer" class="p-5 space-y-3.5 overflow-y-auto max-h-[55vh]">
+        <!-- Chunks dynamically generated here -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div class="flex items-center space-x-1.5">
+          <i data-lucide="info" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+          <span>กดปุ่ม <b>"คัดลอกชุดนี้"</b> เพื่อนำไปวางทีละ 50 ตัวในเว็ปหวยได้ทันที</span>
+        </div>
+        <button id="btnCloseChunk50Modal2" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-1.5 rounded-lg transition">
+          ปิด
+        </button>
+      </div>
+
     </div>
   </div>
 
