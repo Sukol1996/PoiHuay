@@ -535,11 +535,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let theadHtml = `
       <thead>
         <tr class="bg-slate-50">
-          <th colspan="${headerColsLeft}" class="text-left py-1.5 px-2.5 font-bold text-slate-800 border border-slate-300 tracking-wide">
-            <span class="text-xs font-black">${escapeHtml(batch.website)}</span>
+          <th colspan="${headerColsLeft}" class="text-left py-1.5 px-2 font-bold text-slate-800 border border-slate-300 tracking-wide">
+            <div class="flex items-center space-x-1 group">
+              <input type="text" 
+                     value="${escapeHtml(batch.website)}" 
+                     data-id="${batch.id}"
+                     data-field="website"
+                     class="input-batch-header-website font-black text-xs text-slate-800 bg-transparent hover:bg-white focus:bg-white px-1.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition w-full max-w-[150px]"
+                     title="คลิกเพื่อแก้ไขชื่อเว็ป (บันทึกลง Supabase ทันที)">
+              <button type="button" class="btn-open-edit-batch p-1 text-slate-400 hover:text-emerald-700 opacity-40 group-hover:opacity-100 transition" data-id="${batch.id}" title="แก้ไขชื่อเว็ป / ป้ายกำกับ">
+                <i data-lucide="edit-2" class="w-3 h-3"></i>
+              </button>
+            </div>
           </th>
           <th colspan="${headerColsRight}" class="text-right py-1.5 px-2 border border-slate-300">
-            <span class="excel-header-badge">${escapeHtml(batch.badgeText || 'ตัดยอด')}</span>
+            <div class="flex items-center justify-end space-x-1 group">
+              <input type="text" 
+                     value="${escapeHtml(batch.badgeText || '30/3')}" 
+                     data-id="${batch.id}"
+                     data-field="badgeText"
+                     class="input-batch-header-badge text-xs font-bold text-center bg-[#22c55e] text-white hover:bg-emerald-600 focus:bg-emerald-600 px-2.5 py-0.5 rounded border border-emerald-500 focus:border-white focus:ring-1 focus:ring-white outline-none transition w-auto max-w-[120px] shadow-sm cursor-text"
+                     title="คลิกเพื่อแก้ไขป้ายกำกับ เช่น 30/3, 40/4 (บันทึกลง Supabase ทันที)">
+            </div>
           </th>
         </tr>
       </thead>
@@ -571,9 +588,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <td colspan="${gridData.colCount}" class="excel-count-cell py-1.5 px-3">
             <div class="flex justify-between items-center text-xs">
-              <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition" data-id="${batch.id}" title="ลบตารางนี้">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-              </button>
+              <div class="flex items-center space-x-1.5">
+                <button class="btn-delete-web-batch text-slate-400 hover:text-rose-600 transition p-0.5" data-id="${batch.id}" title="ลบตารางนี้">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+                <button class="btn-open-edit-batch text-slate-400 hover:text-emerald-600 transition p-0.5" data-id="${batch.id}" title="แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
               <div class="flex items-center space-x-1.5">
                 <span class="text-slate-500 font-semibold">count</span>
                 <span class="font-black text-slate-800 font-num text-sm">${gridData.totalCount}</span>
@@ -603,6 +625,65 @@ document.addEventListener('DOMContentLoaded', () => {
           renderBoard();
           updateDashboardStats();
           showToast('ลบตารางเรียบร้อยแล้ว', 'info');
+        }
+      });
+    });
+
+    // Open Edit Batch Modal
+    document.querySelectorAll('.btn-open-edit-batch').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const batch = storage.session.batches.find(b => b.id === id);
+        if (batch) {
+          openEditBatchModal(batch);
+        }
+      });
+    });
+
+    // Inline edit website name
+    document.querySelectorAll('.input-batch-header-website').forEach(input => {
+      let initialVal = input.value.trim();
+
+      const commitChange = () => {
+        const newVal = input.value.trim() || 'เว็ปหลัก';
+        if (newVal !== initialVal) {
+          const id = input.getAttribute('data-id');
+          storage.updateBatch(id, { website: newVal });
+          initialVal = newVal;
+          updateDashboardStats();
+          showToast(`☁️ อัปเดตชื่อเว็ปเป็น "${newVal}" และบันทึกลง Supabase แล้ว`, 'success');
+        }
+      };
+
+      input.addEventListener('blur', commitChange);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+      });
+    });
+
+    // Inline edit badge text (เช่น 30/3, 40/4)
+    document.querySelectorAll('.input-batch-header-badge').forEach(input => {
+      let initialVal = input.value.trim();
+
+      const commitChange = () => {
+        const newVal = input.value.trim() || 'ตัดยอด';
+        if (newVal !== initialVal) {
+          const id = input.getAttribute('data-id');
+          storage.updateBatch(id, { badgeText: newVal });
+          initialVal = newVal;
+          showToast(`☁️ อัปเดตป้ายกำกับเป็น "${newVal}" และบันทึกลง Supabase แล้ว`, 'success');
+        }
+      };
+
+      input.addEventListener('blur', commitChange);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
         }
       });
     });
@@ -676,6 +757,58 @@ document.addEventListener('DOMContentLoaded', () => {
       renderBoard();
       updateDashboardStats();
       showToast('ล้างกระดานเรียบร้อยแล้ว', 'info');
+    }
+  });
+
+  // ==========================================
+  // Edit Batch Header Modal Logic (แก้ไขชื่อเว็ป และ 30/3)
+  // ==========================================
+  const modalEditBatch = document.getElementById('modalEditBatch');
+  const editBatchId = document.getElementById('editBatchId');
+  const editBatchWebsite = document.getElementById('editBatchWebsite');
+  const editBatchBadgeText = document.getElementById('editBatchBadgeText');
+
+  function openEditBatchModal(batch) {
+    if (!batch || !modalEditBatch) return;
+    editBatchId.value = batch.id;
+    editBatchWebsite.value = batch.website || '';
+    editBatchBadgeText.value = batch.badgeText || '30/3';
+    modalEditBatch.classList.remove('hidden');
+    editBatchWebsite.focus();
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeEditBatchModal() {
+    if (modalEditBatch) modalEditBatch.classList.add('hidden');
+  }
+
+  document.getElementById('btnCloseEditBatchModal')?.addEventListener('click', closeEditBatchModal);
+  document.getElementById('btnCloseEditBatchModal2')?.addEventListener('click', closeEditBatchModal);
+
+  document.getElementById('btnSaveEditBatch')?.addEventListener('click', () => {
+    const id = editBatchId.value;
+    const website = editBatchWebsite.value.trim() || 'เว็ปหลัก';
+    const badgeText = editBatchBadgeText.value.trim() || '30/3';
+
+    if (!id) return;
+    storage.updateBatch(id, { website, badgeText });
+    closeEditBatchModal();
+    renderBoard();
+    updateDashboardStats();
+    showToast(`☁️ บันทึกการแก้ไข (${website} / ${badgeText}) ลง Supabase เรียบร้อยแล้ว`, 'success');
+  });
+
+  editBatchWebsite?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('btnSaveEditBatch')?.click();
+    }
+  });
+
+  editBatchBadgeText?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('btnSaveEditBatch')?.click();
     }
   });
 

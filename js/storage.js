@@ -505,6 +505,61 @@ class LotteryStorage {
     return savedBatch;
   }
 
+  // Update existing batch header (แก้ไขชื่อเว็ป หรือ ป้ายกำกับ 30/3, ตัดยอด)
+  updateBatch(batchId, updates = {}) {
+    const batch = this.session.batches.find(b => b.id === batchId);
+    if (!batch) return null;
+
+    let hasChanges = false;
+
+    if (updates.website !== undefined && updates.website.trim() && updates.website.trim() !== batch.website) {
+      batch.website = updates.website.trim();
+      this.saveRecentWebsites(batch.website);
+      hasChanges = true;
+    }
+
+    if (updates.badgeText !== undefined && updates.badgeText.trim() !== batch.badgeText) {
+      batch.badgeText = updates.badgeText.trim();
+      hasChanges = true;
+    }
+
+    if (updates.numbers !== undefined && Array.isArray(updates.numbers)) {
+      batch.numbers = [...updates.numbers].sort((a, b) => a.localeCompare(b));
+      batch.count = batch.numbers.length;
+      hasChanges = true;
+    }
+
+    if (!hasChanges) return batch;
+
+    batch.updatedAt = new Date().toISOString();
+    this.saveLocalSession();
+
+    // บันทึกการแก้ไขลง Supabase ทันที
+    if (this.supabaseClient) {
+      this.supabaseClient
+        .from('lottery_batches')
+        .update({
+          website: batch.website,
+          badge_text: batch.badgeText,
+          numbers: batch.numbers,
+          count: batch.count
+        })
+        .eq('id', batchId)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Supabase update batch error:', error.message);
+          } else {
+            this.isSupabaseConnected = true;
+            this.notifyStatusChange();
+            this.notifyCloudSave({ type: 'batch_update', batch });
+          }
+        })
+        .catch(err => console.warn('Supabase update batch network error:', err));
+    }
+
+    return batch;
+  }
+
   deleteBatch(batchId) {
     this.session.batches = this.session.batches.filter(b => b.id !== batchId);
     this.saveLocalSession();

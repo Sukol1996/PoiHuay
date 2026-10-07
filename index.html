@@ -507,6 +507,54 @@
 
       </div>
     </div>
+  <!-- Edit Batch Modal (แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3) -->
+  <div id="modalEditBatch" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-emerald-700 text-white px-5 py-3.5 flex justify-between items-center">
+        <div class="flex items-center space-x-2 font-bold text-sm">
+          <i data-lucide="edit-3" class="w-4 h-4 text-emerald-200"></i>
+          <span>แก้ไขหัวตารางตัดเลข</span>
+        </div>
+        <button id="btnCloseEditBatchModal" class="text-white/80 hover:text-white p-1 rounded">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <input type="hidden" id="editBatchId">
+
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-700">
+            ชื่อเว็ปกำกับ:
+          </label>
+          <input type="text" id="editBatchWebsite" placeholder="เช่น lotterich, chudjen, huaydee" 
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800">
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-700">
+            ป้ายกำกับหัวตาราง:
+          </label>
+          <input type="text" id="editBatchBadgeText" placeholder="เช่น 30/3, 40/4, ตัดยอด 55" 
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-emerald-700">
+          <p class="text-[11px] text-slate-400">ระบุป้ายกำกับที่ต้องการให้แสดงที่หัวตาราง (แถบสีเขียว)</p>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="pt-2 flex justify-end space-x-2 border-t border-slate-100">
+          <button id="btnCloseEditBatchModal2" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-lg transition">
+            ยกเลิก
+          </button>
+          <button id="btnSaveEditBatch" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg transition flex items-center space-x-1 shadow-sm">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span>บันทึกการแก้ไข</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <!-- Toast Notification Container -->
