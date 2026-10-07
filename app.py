@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import os
+import json
 
 # Set page configuration
 st.set_page_config(
@@ -62,11 +63,37 @@ def get_bundled_html():
     with open(app_path, "r", encoding="utf-8") as f:
         app_js = f.read()
 
+    # Read Supabase credentials from Streamlit Cloud Secrets or OS environment variables
+    supabase_url = ""
+    supabase_anon_key = ""
+    try:
+        if "SUPABASE_URL" in st.secrets:
+            supabase_url = str(st.secrets["SUPABASE_URL"]).strip()
+        if "SUPABASE_ANON_KEY" in st.secrets:
+            supabase_anon_key = str(st.secrets["SUPABASE_ANON_KEY"]).strip()
+    except Exception:
+        pass
+
+    if not supabase_url:
+        supabase_url = os.environ.get("SUPABASE_URL", "").strip()
+    if not supabase_anon_key:
+        supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", "").strip()
+
+    supabase_injection = f"""
+    <script>
+      window.SUPABASE_CONFIG = {{
+        url: {json.dumps(supabase_url)},
+        anonKey: {json.dumps(supabase_anon_key)}
+      }};
+    </script>
+    """
+
     # Inline CSS
     html = html.replace('<link rel="stylesheet" href="css/style.css">', f'<style>{css}</style>')
 
     # Inline JS scripts
     scripts = f"""
+    {supabase_injection}
     <script>{parser_js}</script>
     <script>{storage_js}</script>
     <script>{calc_js}</script>

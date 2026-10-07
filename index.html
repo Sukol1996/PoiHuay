@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/style.css">
   <script>
@@ -68,11 +70,17 @@
           <input type="date" id="headerDateInput" class="bg-emerald-900/90 text-white text-xs px-2 py-1 rounded border border-emerald-600 focus:outline-none">
         </div>
 
-        <!-- Action Quick Sample -->
-        <div class="hidden sm:flex items-center space-x-2">
-          <button id="btnQuickSample" class="inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded font-medium transition shadow-sm">
+        <!-- Action Tools & Supabase Button -->
+        <div class="flex items-center space-x-2">
+          <!-- Supabase Connection Button -->
+          <button id="btnOpenSupabaseModal" type="button" class="inline-flex items-center space-x-1.5 text-xs bg-emerald-800 hover:bg-emerald-900 text-white px-2.5 py-1.5 rounded border border-emerald-600 transition shadow-sm" title="ตั้งค่าการเชื่อมต่อฐานข้อมูล Supabase">
+            <span id="supabaseStatusDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span id="supabaseStatusLabel" class="hidden sm:inline">Supabase</span>
+          </button>
+
+          <button id="btnQuickSample" class="hidden sm:inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded font-medium transition shadow-sm">
             <i data-lucide="sparkles" class="w-3.5 h-3.5 text-yellow-300"></i>
-            <span>โหลดตัวอย่าง (lotterich)</span>
+            <span>โหลดตัวอย่าง</span>
           </button>
         </div>
       </div>
@@ -414,6 +422,83 @@
           <button id="btnCloseLotteryManager2" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg transition">
             เสร็จสิ้น / ปิดหน้าต่าง
           </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase Cloud Database Configuration Modal (ตั้งค่าเชื่อมต่อฐานข้อมูล Supabase) -->
+  <div id="modalSupabaseConfig" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-emerald-700 text-white px-5 py-3.5 flex justify-between items-center">
+        <div class="flex items-center space-x-2 font-bold text-sm">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-200"></i>
+          <span>เชื่อมต่อฐานข้อมูล Supabase (Cloud Database)</span>
+        </div>
+        <button id="btnCloseSupabaseModal" class="text-white/80 hover:text-white p-1 rounded">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <!-- Status Banner -->
+        <div id="supabaseStatusBanner" class="p-3 rounded-lg border flex items-center justify-between bg-slate-50 border-slate-200">
+          <div class="flex items-center space-x-2">
+            <span id="modalSupabaseStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+            <span id="modalSupabaseStatusText" class="font-bold text-slate-700">สถานะ: ยังไม่ได้เชื่อมต่อ (ใช้งานออฟไลน์)</span>
+          </div>
+          <span id="modalSupabaseBadge" class="text-[10px] px-2 py-0.5 rounded font-semibold bg-slate-200 text-slate-600">Local Only</span>
+        </div>
+
+        <!-- Inputs Form -->
+        <div class="space-y-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">
+              Supabase Project URL:
+            </label>
+            <input type="url" id="inputSupabaseUrl" placeholder="https://xxxxxxxxxxxxxx.supabase.co" 
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-xs">
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">
+              Supabase Anon Key (Public Key):
+            </label>
+            <textarea id="inputSupabaseAnonKey" rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-xs"></textarea>
+          </div>
+        </div>
+
+        <!-- Info / Instructions Box -->
+        <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-lg p-3 text-emerald-800 space-y-1 text-[11px] leading-relaxed">
+          <div class="font-bold flex items-center space-x-1">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            <span>คำแนะนำการตั้งค่า:</span>
+          </div>
+          <p>1. นำสคริปต์ใน <code class="bg-emerald-100 px-1 py-0.5 rounded font-mono">supabase_schema.sql</code> ไปรันใน <b>Supabase SQL Editor</b></p>
+          <p>2. นำ <b>Project URL</b> และ <b>anon key</b> มาวางในช่องด้านบน หรือใส่ใน <b>Streamlit Cloud Secrets</b></p>
+          <p>3. ระบบจะบันทึกตัวเลขและรายชื่อหวยขึ้นฐานข้อมูลคลาวด์แบบอัตโนมัติ</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="pt-2 flex flex-wrap gap-2 justify-between items-center border-t border-slate-100">
+          <button id="btnDisconnectSupabase" class="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded transition font-medium">
+            ตัดการเชื่อมต่อ
+          </button>
+          
+          <div class="flex space-x-2">
+            <button id="btnTestSupabaseConnection" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-lg transition flex items-center space-x-1">
+              <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+              <span>ทดสอบเชื่อมต่อ</span>
+            </button>
+            <button id="btnSaveSupabaseConfig" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg transition flex items-center space-x-1 shadow-sm">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              <span>บันทึก & เชื่อมต่อ</span>
+            </button>
+          </div>
         </div>
 
       </div>

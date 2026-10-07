@@ -121,8 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Header Lottery Select Change
   headerLotterySelect.addEventListener('change', (e) => {
-    storage.session.lotteryName = e.target.value;
-    storage.saveSession();
+    storage.setSessionLottery(e.target.value, storage.session.lotteryDate);
     renderLotterySelectDropdown();
     renderBoard();
   });
@@ -195,9 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderLotterySelectDropdown();
 
   headerDateInput.addEventListener('change', (e) => {
-    storage.session.lotteryDate = e.target.value;
-    storage.saveSession();
+    storage.setSessionLottery(storage.session.lotteryName, e.target.value);
     document.getElementById('mobileDateText').textContent = storage.session.lotteryDate;
+    renderBoard();
   });
 
   // Tab Navigation Handling
@@ -679,6 +678,130 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('ล้างกระดานเรียบร้อยแล้ว', 'info');
     }
   });
+
+  // ==========================================
+  // Supabase Modal & Cloud Integration
+  // ==========================================
+  const modalSupabaseConfig = document.getElementById('modalSupabaseConfig');
+  const inputSupabaseUrl = document.getElementById('inputSupabaseUrl');
+  const inputSupabaseAnonKey = document.getElementById('inputSupabaseAnonKey');
+  const supabaseStatusDot = document.getElementById('supabaseStatusDot');
+  const supabaseStatusLabel = document.getElementById('supabaseStatusLabel');
+  const modalSupabaseStatusDot = document.getElementById('modalSupabaseStatusDot');
+  const modalSupabaseStatusText = document.getElementById('modalSupabaseStatusText');
+  const modalSupabaseBadge = document.getElementById('modalSupabaseBadge');
+
+  function updateSupabaseStatusUI(isConnected, config) {
+    const isConn = isConnected !== undefined ? isConnected : storage.isSupabaseConnected;
+    const cfg = config || storage.supabaseConfig;
+
+    if (isConn) {
+      if (supabaseStatusDot) supabaseStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+      if (supabaseStatusLabel) supabaseStatusLabel.textContent = 'Supabase: ออนไลน์';
+      if (modalSupabaseStatusDot) modalSupabaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+      if (modalSupabaseStatusText) modalSupabaseStatusText.textContent = 'สถานะ: เชื่อมต่อฐานข้อมูลสำเร็จ (Online Cloud Sync)';
+      if (modalSupabaseBadge) {
+        modalSupabaseBadge.className = 'text-[10px] px-2 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-700';
+        modalSupabaseBadge.textContent = 'Cloud Active';
+      }
+    } else {
+      if (supabaseStatusDot) supabaseStatusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+      if (supabaseStatusLabel) supabaseStatusLabel.textContent = 'Supabase: ออฟไลน์';
+      if (modalSupabaseStatusDot) modalSupabaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
+      if (modalSupabaseStatusText) modalSupabaseStatusText.textContent = 'สถานะ: ยังไม่ได้เชื่อมต่อ (ใช้งานออฟไลน์)';
+      if (modalSupabaseBadge) {
+        modalSupabaseBadge.className = 'text-[10px] px-2 py-0.5 rounded font-semibold bg-slate-200 text-slate-600';
+        modalSupabaseBadge.textContent = 'Local Only';
+      }
+    }
+
+    if (inputSupabaseUrl && cfg && cfg.url) {
+      inputSupabaseUrl.value = cfg.url;
+    }
+    if (inputSupabaseAnonKey && cfg && cfg.anonKey) {
+      inputSupabaseAnonKey.value = cfg.anonKey;
+    }
+  }
+
+  // Open Supabase Modal
+  document.getElementById('btnOpenSupabaseModal')?.addEventListener('click', () => {
+    updateSupabaseStatusUI();
+    modalSupabaseConfig.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  });
+
+  // Close Supabase Modal
+  document.getElementById('btnCloseSupabaseModal')?.addEventListener('click', () => {
+    modalSupabaseConfig.classList.add('hidden');
+  });
+
+  // Test Supabase Connection
+  document.getElementById('btnTestSupabaseConnection')?.addEventListener('click', async () => {
+    const url = inputSupabaseUrl.value.trim();
+    const key = inputSupabaseAnonKey.value.trim();
+
+    if (!url || !key) {
+      showToast('กรุณากรอก Supabase URL และ Anon Key ให้ครบถ้วน', 'warning');
+      return;
+    }
+
+    showToast('กำลังทดสอบการเชื่อมต่อกับ Supabase...', 'info');
+    const result = await storage.testConnection(url, key);
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'warning');
+    }
+  });
+
+  // Save Supabase Configuration
+  document.getElementById('btnSaveSupabaseConfig')?.addEventListener('click', async () => {
+    const url = inputSupabaseUrl.value.trim();
+    const key = inputSupabaseAnonKey.value.trim();
+
+    if (!url || !key) {
+      showToast('กรุณากรอก Supabase URL และ Anon Key ให้ครบถ้วน', 'warning');
+      return;
+    }
+
+    showToast('กำลังบันทึกและเชื่อมต่อฐานข้อมูล...', 'info');
+    storage.saveSupabaseConfig(url, key);
+
+    const test = await storage.testConnection(url, key);
+    if (test.success) {
+      showToast('เชื่อมต่อและบันทึกการตั้งค่า Supabase เรียบร้อยแล้ว!', 'success');
+      modalSupabaseConfig.classList.add('hidden');
+      updateSupabaseStatusUI(true, { url, anonKey: key });
+    } else {
+      showToast(`บันทึกแล้ว แต่ทดสอบไม่ผ่าน: ${test.message}`, 'warning');
+    }
+  });
+
+  // Disconnect Supabase
+  document.getElementById('btnDisconnectSupabase')?.addEventListener('click', () => {
+    if (confirm('คุณต้องการตัดการเชื่อมต่อกับ Supabase และกลับไปใช้ระบบออฟไลน์หรือไม่?')) {
+      storage.clearSupabaseConfig();
+      inputSupabaseUrl.value = '';
+      inputSupabaseAnonKey.value = '';
+      updateSupabaseStatusUI(false, { url: '', anonKey: '' });
+      showToast('ตัดการเชื่อมต่อ Supabase แล้ว กลับสู่โหมดออฟไลน์', 'info');
+    }
+  });
+
+  // Register Sync and Status listeners
+  storage.onStatusChange((isConnected, config) => {
+    updateSupabaseStatusUI(isConnected, config);
+  });
+
+  storage.onSync(() => {
+    renderLotterySelectDropdown();
+    renderBoard();
+    updateDashboardStats();
+    showToast('ซิงก์ข้อมูลล่าสุดจาก Supabase Cloud เรียบร้อย', 'info');
+  });
+
+  // Initialize Supabase Status Indicator
+  updateSupabaseStatusUI();
 
   // Toast Notification Helper
   function showToast(message, type = 'info') {
