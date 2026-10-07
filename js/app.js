@@ -64,20 +64,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnLogout = document.getElementById('btnLogout');
 
   function openLoginModal() {
-    if (!modalLogin) return;
-    if (loginUsername) loginUsername.value = '';
-    if (loginPassword) loginPassword.value = '';
-    if (loginErrorMsg) loginErrorMsg.classList.add('hidden');
-    modalLogin.classList.remove('hidden');
+    const modal = document.getElementById('modalLogin');
+    if (!modal) {
+      console.error('modalLogin element not found in DOM!');
+      return;
+    }
+    const uInput = document.getElementById('loginUsername');
+    const pInput = document.getElementById('loginPassword');
+    const errBox = document.getElementById('loginErrorMsg');
+    if (uInput) uInput.value = '';
+    if (pInput) pInput.value = '';
+    if (errBox) errBox.classList.add('hidden');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     setTimeout(() => {
-      if (loginUsername) loginUsername.focus();
-    }, 60);
+      if (uInput) uInput.focus();
+    }, 50);
     if (window.lucide) lucide.createIcons();
   }
 
   function closeLoginModal() {
-    if (modalLogin) modalLogin.classList.add('hidden');
+    const modal = document.getElementById('modalLogin');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
   }
+
+  window.openLoginModal = openLoginModal;
+  window.closeLoginModal = closeLoginModal;
 
   if (btnOpenLoginModal) {
     btnOpenLoginModal.addEventListener('click', openLoginModal);

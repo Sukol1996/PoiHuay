@@ -95,9 +95,9 @@
                 <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
                 <span class="hidden sm:inline">โหมดอ่านอย่างเดียว</span>
               </span>
-              <button id="btnOpenLoginModal" type="button" class="inline-flex items-center space-x-1.5 text-xs bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-3 py-1.5 rounded-lg shadow-sm transition transform active:scale-95" title="เข้าสู่ระบบเพื่อแก้ไขข้อมูล">
-                <i data-lucide="log-in" class="w-3.5 h-3.5 text-slate-900"></i>
-                <span>เข้าสู่ระบบ</span>
+              <button id="btnOpenLoginModal" type="button" onclick="window.openLoginModal ? window.openLoginModal() : null" class="inline-flex items-center space-x-1.5 text-xs bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-3 py-1.5 rounded-lg shadow-sm transition transform active:scale-95 cursor-pointer" title="เข้าสู่ระบบเพื่อแก้ไขข้อมูล">
+                <i data-lucide="log-in" class="w-3.5 h-3.5 text-slate-900 pointer-events-none"></i>
+                <span class="pointer-events-none">เข้าสู่ระบบ</span>
               </button>
             </div>
 
@@ -159,9 +159,9 @@
             <p class="text-xs text-amber-700">คุณสามารถดูตัวเลขและคัดลอกเลขจากกระดานได้ตามปกติ หากต้องการวางตัวเลข ตัดเลข หรือแก้ไขข้อมูล กรุณาเข้าสู่ระบบ</p>
           </div>
         </div>
-        <button type="button" class="btn-trigger-login bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition shadow-xs flex items-center justify-center space-x-1.5 text-xs shrink-0">
-          <i data-lucide="log-in" class="w-4 h-4 text-slate-900"></i>
-          <span>เข้าสู่ระบบเพื่อแก้ไข</span>
+        <button type="button" onclick="window.openLoginModal ? window.openLoginModal() : null" class="btn-trigger-login bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition shadow-xs flex items-center justify-center space-x-1.5 text-xs shrink-0 cursor-pointer">
+          <i data-lucide="log-in" class="w-4 h-4 text-slate-900 pointer-events-none"></i>
+          <span class="pointer-events-none">เข้าสู่ระบบเพื่อแก้ไข</span>
         </button>
       </div>
 
@@ -540,6 +540,8 @@
 
       </div>
     </div>
+  </div>
+
   <!-- Edit Batch Modal (แก้ไขชื่อเว็ป และ ป้ายกำกับ 30/3) -->
   <div id="modalEditBatch" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
@@ -643,8 +645,11 @@
         </button>
       </div>
 
+    </div>
+  </div>
+
   <!-- Modal: Login for Edit Mode (เข้าสู่ระบบเพื่อแก้ไขข้อมูล) -->
-  <div id="modalLogin" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+  <div id="modalLogin" class="fixed inset-0 z-[999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 animate-in fade-in duration-150">
       
       <!-- Modal Header -->
