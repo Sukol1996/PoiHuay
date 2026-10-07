@@ -1,0 +1,13 @@
+{
+  "name": "lottery-slip-app",
+  "version": "1.0.0",
+  "description": "เว็บจดโพยหวย ถอดรหัสข้อความอัตโนมัติ และกระดานตัดเลข",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-parser.js"
+  },
+  "keywords": ["lottery", "thai-lottery", "slip-parser"],
+  "author": "",
+  "license": "MIT"
+}

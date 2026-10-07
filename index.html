@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เว็บจดโพยตัวเลข & กระดานตัดเลข</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- Top Header Navigation -->
+  <header class="bg-emerald-700 text-white shadow-md sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-lg bg-emerald-800 flex items-center justify-center shadow-inner border border-emerald-500/30">
+            <i data-lucide="table-properties" class="w-6 h-6 text-emerald-300"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-lg tracking-tight">ระบบจดโพยตัวเลข & กระดานตัดเลข</span>
+            </div>
+            <p class="text-xs text-emerald-200">จดเฉพาะตัวเลข • กำกับชื่อเว็ป • จัดตารางแบบ Excel</p>
+          </div>
+        </div>
+
+        <!-- Lottery Round & Date Controls -->
+        <div class="flex items-center space-x-2 bg-emerald-800/80 px-3 py-1.5 rounded-lg border border-emerald-600/50">
+          <div class="flex items-center space-x-1 text-xs text-emerald-200 font-medium">
+            <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+            <span>ชื่อหวย:</span>
+          </div>
+          <select id="headerLotterySelect" class="bg-emerald-900/90 text-white text-xs font-semibold px-2 py-1 rounded border border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-400">
+            <!-- Dynamically populated from storage.lotteryList -->
+          </select>
+
+          <!-- Manage Lotteries Button (+ / -) -->
+          <button id="btnOpenLotteryManager" type="button" class="inline-flex items-center space-x-1 bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded text-xs border border-emerald-500/60 transition" title="จัดการรายชื่อหวย (เพิ่ม / ลบ)">
+            <i data-lucide="list-plus" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">เพิ่ม/ลบ</span>
+          </button>
+
+          <input type="date" id="headerDateInput" class="bg-emerald-900/90 text-white text-xs px-2 py-1 rounded border border-emerald-600 focus:outline-none">
+        </div>
+
+        <!-- Action Quick Sample -->
+        <div class="hidden sm:flex items-center space-x-2">
+          <button id="btnQuickSample" class="inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded font-medium transition shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-yellow-300"></i>
+            <span>โหลดตัวอย่าง (lotterich)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Tabs Bar (2 เมนูหลัก) -->
+      <div class="flex space-x-2 border-t border-emerald-600/40 pt-1 pb-1.5 overflow-x-auto text-xs sm:text-sm font-medium">
+        <button data-tab="tab-input" class="nav-tab flex items-center space-x-1.5 px-4 py-1.5 rounded-md text-white bg-emerald-900/80 shadow-sm border border-emerald-500/40">
+          <i data-lucide="edit-3" class="w-4 h-4"></i>
+          <span>1. กล่องวางตัวเลข (จดโพย)</span>
+        </button>
+        <button data-tab="tab-board" class="nav-tab flex items-center space-x-1.5 px-4 py-1.5 rounded-md text-emerald-100 hover:text-white hover:bg-emerald-800/60 transition">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i>
+          <span>2. กระดานตัดเลข (แบบ Excel)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Lottery Banner -->
+  <div class="md:hidden bg-emerald-800 text-white px-4 py-2 flex items-center justify-between text-xs no-print">
+    <div class="flex items-center space-x-1">
+      <span class="text-emerald-300">หวย:</span>
+      <span id="mobileLotteryName" class="font-bold">ฮานอยพิเศษ</span>
+    </div>
+    <div class="text-emerald-300" id="mobileDateText">2026-10-07</div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ========================================== -->
+    <!-- TAB 1: กล่องวางตัวเลข (จดโพย) -->
+    <!-- ========================================== -->
+    <section id="tab-input" class="tab-content block space-y-6">
+      
+      <!-- Top Overview Stats -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+          <div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600">
+            <i data-lucide="tag" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-medium">ชื่อหวยงวดนี้</div>
+            <div class="text-base font-bold text-slate-800" id="statLotteryName">ฮานอยพิเศษ</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+          <div class="p-2.5 rounded-lg bg-blue-50 text-blue-600">
+            <i data-lucide="globe" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-medium">จำนวนเว็ปในกระดาน</div>
+            <div class="text-base font-bold text-slate-800 font-num" id="statTotalWebsites">0 เว็ป</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+          <div class="p-2.5 rounded-lg bg-purple-50 text-purple-600">
+            <i data-lucide="hash" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-medium">เลข 3 บน รวม</div>
+            <div class="text-base font-bold text-purple-700 font-num" id="statTotal3on">0 ตัว</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+          <div class="p-2.5 rounded-lg bg-amber-50 text-amber-600">
+            <i data-lucide="hash" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-medium">เลข 2 บน รวม</div>
+            <div class="text-base font-bold text-amber-700 font-num" id="statTotal2on">0 ตัว</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Input Card -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
+        
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h2 class="font-bold text-slate-800 text-lg flex items-center space-x-2">
+              <i data-lucide="file-input" class="w-5 h-5 text-emerald-600"></i>
+              <span>จดโพยตัวเลข</span>
+            </h2>
+            <p class="text-xs text-slate-500">กรอกชื่อเว็ป วางตัวเลขล้วนๆ แล้วกดขึ้นกระดานตัดเลขได้ทันที</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="btnPasteClipboard" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center space-x-1 transition">
+              <i data-lucide="clipboard" class="w-3.5 h-3.5"></i>
+              <span>วางจากคลิปบอร์ด</span>
+            </button>
+            <button id="btnClearInput" class="text-xs bg-slate-100 hover:bg-rose-100 hover:text-rose-600 text-slate-600 px-3 py-1.5 rounded-lg transition">
+              ล้างกล่อง
+            </button>
+          </div>
+        </div>
+
+        <!-- Form Options Row -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+          
+          <!-- Website Name Input (5 cols) -->
+          <div class="md:col-span-5 space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700">
+              ชื่อเว็ปกำกับ <span class="text-rose-500">*</span>
+            </label>
+            <input type="text" id="inputWebsiteName" placeholder="เช่น lotterich, chudjen, huaydee" 
+                   value="lotterich"
+                   class="w-full text-sm font-semibold px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+            
+            <!-- Quick Website Presets -->
+            <div class="flex flex-wrap items-center gap-1 pt-1 text-[11px] text-slate-500">
+              <span class="text-[10px] text-slate-400">เว็ปด่วน:</span>
+              <button type="button" class="btn-preset-web px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded text-slate-600 border border-slate-200" data-web="lotterich">lotterich</button>
+              <button type="button" class="btn-preset-web px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded text-slate-600 border border-slate-200" data-web="chudjen">chudjen</button>
+              <button type="button" class="btn-preset-web px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded text-slate-600 border border-slate-200" data-web="huaydee">huaydee</button>
+              <button type="button" class="btn-preset-web px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded text-slate-600 border border-slate-200" data-web="เว็ปหลัก">เว็ปหลัก</button>
+            </div>
+          </div>
+
+          <!-- Badge / Tag text (3 cols) -->
+          <div class="md:col-span-3 space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700">
+              ป้ายกำกับหัวตาราง (แถบเขียว)
+            </label>
+            <input type="text" id="inputBadgeText" placeholder="เช่น ยอดตัด 55, 1000/ตัว" 
+                   value="ตัดยอด 55"
+                   class="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+            <p class="text-[10px] text-slate-400">จะแสดงเป็นแถบสีเขียวบนหัวตาราง Excel</p>
+          </div>
+
+          <!-- Type Select (4 cols) -->
+          <div class="md:col-span-4 space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700">
+              การแยกหมวดตัวเลข
+            </label>
+            <select id="selectNumberCategory" class="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white font-medium">
+              <option value="auto">แยกอัตโนมัติ (3 หลัก = 3บน, 2 หลัก = 2บน)</option>
+              <option value="3on">เฉพาะ 3 ตัวบน</option>
+              <option value="2on">เฉพาะ 2 ตัวบน</option>
+              <option value="2under">เฉพาะ 2 ตัวล่าง</option>
+              <option value="3tod">เฉพาะ 3 ตัวโต๊ด</option>
+            </select>
+            <div class="flex items-center space-x-1.5 pt-1 text-xs text-slate-600">
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="chkDeduplicate" checked class="rounded text-emerald-600 focus:ring-0">
+                <span class="text-[11px]">ตัดเลขซ้ำอัตโนมัติ (แสดงเฉพาะเลขไม่ซ้ำ)</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Big Numbers Textarea -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <label class="font-bold text-slate-700">
+              วางตัวเลขที่นี่ (แยกด้วยเคาะวรรค, เคาะบรรทัด หรือลูกน้ำ):
+            </label>
+            <span id="liveCounterBadge" class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              ตรวจพบ: 0 ตัว
+            </span>
+          </div>
+
+          <textarea id="rawNumbersInput" rows="11" 
+                    placeholder="วางตัวเลขลงในช่องนี้ได้เลย เช่น:&#10;005 006 007 033 052 070 104 206 246 301&#10;055 071 075 077 092 112 131 132 137 196&#10;27 35 57 76 83 50 65 70 08 11"
+                    class="w-full font-mono text-sm p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none leading-relaxed bg-slate-50/50"></textarea>
+        </div>
+
+        <!-- Live Breakdown Bar -->
+        <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex items-center space-x-4">
+            <div>
+              <span class="text-slate-500">เลข 3 หลัก:</span>
+              <span class="font-bold text-blue-700 font-num text-sm ml-1" id="liveCount3D">0</span> ตัว
+            </div>
+            <div>
+              <span class="text-slate-500">เลข 2 หลัก:</span>
+              <span class="font-bold text-emerald-700 font-num text-sm ml-1" id="liveCount2D">0</span> ตัว
+            </div>
+            <div>
+              <span class="text-slate-500">รวมทั้งหมด:</span>
+              <span class="font-bold text-slate-900 font-num text-sm ml-1" id="liveCountTotal">0</span> ตัว
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <button id="btnSampleHanoi" type="button" class="text-xs text-slate-600 hover:text-emerald-700 underline underline-offset-2">
+              โหลดตัวอย่างฮานอยพิเศษ (lotterich)
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="flex justify-end pt-2">
+          <button id="btnAddToBoard" class="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition transform active:scale-95 text-base">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            <span>✨ นำขึ้นกระดานตัดเลข</span>
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: กระดานตัดเลข (แบบรูปภาพ Excel) -->
+    <!-- ========================================== -->
+    <section id="tab-board" class="tab-content hidden space-y-5">
+      
+      <!-- Board Top Control Bar -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 no-print">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          
+          <!-- Board Title & Lottery Info -->
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm">
+              <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h2 class="font-black text-slate-800 text-xl tracking-tight" id="boardCurrentLotteryTitle">ฮานอยพิเศษ</h2>
+                <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">กระดานตัดเลข</span>
+              </div>
+              <p class="text-xs text-slate-500">แสดงผลตารางจัดคอลัมน์เหมือนแผ่น Excel • แยกตามชื่อเว็ปที่กำกับ</p>
+            </div>
+          </div>
+
+          <!-- Quick Search & Actions -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Search Number Input -->
+            <div class="relative">
+              <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400"></i>
+              <input type="text" id="boardSearchInput" placeholder="ค้นหาตัวเลข..." 
+                     class="text-xs pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none w-36">
+            </div>
+
+            <!-- Website Filter -->
+            <select id="boardWebsiteFilter" class="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white font-medium">
+              <option value="">-- รวมทุกเว็ป --</option>
+            </select>
+
+            <!-- Column count selector -->
+            <select id="boardColCountSelect" class="text-xs px-2 py-1.5 border border-slate-300 rounded-lg outline-none bg-white">
+              <option value="10">10 คอลัมน์ (ตามรูป)</option>
+              <option value="8">8 คอลัมน์</option>
+              <option value="12">12 คอลัมน์</option>
+              <option value="6">6 คอลัมน์</option>
+            </select>
+
+            <!-- Copy to Excel button -->
+            <button id="btnCopyExcelBoard" class="inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition shadow-sm">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>คัดลอกลง Excel</span>
+            </button>
+
+            <!-- Print Button -->
+            <button id="btnPrintBoard" class="inline-flex items-center space-x-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">
+              <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+              <span>พิมพ์</span>
+            </button>
+
+            <!-- Clear Board Button -->
+            <button id="btnClearBoardData" class="inline-flex items-center space-x-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg font-medium transition border border-rose-200" title="ล้างข้อมูลโพยทั้งหมดในกระดาน">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>ล้างกระดาน</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Sub-Tabs -->
+        <div class="flex flex-wrap items-center justify-between pt-2 border-t border-slate-100 text-xs">
+          <div class="flex space-x-1">
+            <button data-board-type="all" class="board-type-tab px-3 py-1 rounded bg-emerald-600 text-white font-medium">แสดงทั้งหมด (3บน, 2บน, 2ล่าง)</button>
+            <button data-board-type="3on" class="board-type-tab px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">3 บน</button>
+            <button data-board-type="2on" class="board-type-tab px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">2 บน</button>
+            <button data-board-type="2under" class="board-type-tab px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">2 ล่าง</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Excel Sheet Rendering Area (Exact layout from user image!) -->
+      <div id="boardContainer" class="space-y-6 overflow-x-auto pb-6">
+        <!-- Will be dynamically populated with Excel Tables -->
+      </div>
+
+    </section>
+
+  <!-- Manage Lottery Names Modal (จัดการเพิ่ม / ลบ ชื่อหวย) -->
+  <div id="modalLotteryManager" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-emerald-700 text-white px-5 py-3.5 flex justify-between items-center">
+        <div class="flex items-center space-x-2 font-bold text-sm">
+          <i data-lucide="tag" class="w-4 h-4 text-emerald-200"></i>
+          <span>จัดการรายชื่อหวย (เพิ่ม / ลบ)</span>
+        </div>
+        <button id="btnCloseLotteryManager" class="text-white/80 hover:text-white p-1 rounded">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        
+        <!-- Add New Lottery Input Box -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-bold text-slate-700">
+            ➕ เพิ่มชื่อหวยใหม่:
+          </label>
+          <div class="flex space-x-2">
+            <input type="text" id="inputNewLotteryName" placeholder="เช่น ฮานอยสตาร์, ลาวสตาร์, ดาวโจนส์" 
+                   class="flex-1 text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+            <button id="btnAddLotteryConfirm" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-sm">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>เพิ่ม</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Lottery List Container -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <label class="font-bold text-slate-700">รายชื่อหวยทั้งหมดในระบบ:</label>
+            <span class="text-[11px] text-slate-400">คลิกที่ปุ่มลบเพื่อลบออก</span>
+          </div>
+          <div id="lotteryManagerList" class="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg text-xs bg-slate-50/50">
+            <!-- Will be dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="pt-2 flex justify-between items-center border-t border-slate-100">
+          <button id="btnResetLotteries" class="text-xs text-slate-400 hover:text-slate-600 underline">
+            คืนค่าเริ่มต้น
+          </button>
+          <button id="btnCloseLotteryManager2" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg transition">
+            เสร็จสิ้น / ปิดหน้าต่าง
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Scripts -->
+  <script src="js/parser.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
