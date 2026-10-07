@@ -441,57 +441,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLiveCount();
   });
 
-  // Sample data: Hanoi Special with lotterich numbers
-  function loadHanoiSample() {
-    inputWebsiteName.value = 'lotterich';
-    inputBadgeText.value = 'ตัดยอด 55';
-    selectNumberCategory.value = 'auto';
-    headerLotterySelect.value = 'ฮานอยพิเศษ';
-    storage.session.lotteryName = 'ฮานอยพิเศษ';
-    storage.saveSession();
-
-    const sample3D = [
-      '005', '006', '007', '033', '052', '070', '104', '206', '246', '301', '308', '327', '336', '339', '341', '357',
-      '055', '071', '075', '077', '092', '112', '131', '132', '137', '196', '208', '217', '224', '232', '233', '244',
-      '750', '781', '782', '783', '785', '717', '719', '731', '737', '745', '751', '757', '767', '770', '787', '788',
-      '165', '170', '171', '175', '178', '182', '185', '189', '200', '202', '204', '205', '207', '214', '215', '221',
-      '427', '431', '435', '436', '438', '444', '446', '448', '450', '454', '461', '462', '464', '470', '474', '484',
-      '738', '740', '745', '750', '766', '700', '704', '706', '727', '774', '778', '798', '800', '804', '806', '808',
-      '033', '046', '049', '054', '055', '057', '059', '062', '064', '068', '074', '078', '081', '084', '088', '093',
-      '251', '257', '259', '264', '265', '266', '267', '270', '272', '273', '275', '286', '294', '330', '334', '335',
-      '519', '522', '524', '534', '535', '543', '545', '555', '560', '568', '570', '571', '572', '579', '581', '584',
-      '912', '917', '924', '934', '935', '941', '943', '946', '950', '954', '958', '965', '971', '973', '978', '981'
-    ];
-
-    const sample2D = [
-      '27', '35', '57', '76', '83', '50', '65', '70', '08', '11', '00', '01', '77',
-      '22', '41', '51', '49', '69', '18', '21', '26', '33', '54',
-      '34', '38', '50', '86', '91', '73', '39', '76', '58', '82', '14', '30', '90'
-    ];
-
-    rawNumbersInput.value = sample3D.join(' ') + '\n\n' + sample2D.join(' ');
-    updateLiveCount();
-    showToast('โหลดตัวอย่างตัวเลข "ฮานอยพิเศษ (lotterich)" เรียบร้อย', 'info');
-  }
-
-  document.getElementById('btnSampleHanoi')?.addEventListener('click', () => {
-    if (!isUserAdmin()) {
-      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อโหลดตัวอย่าง', 'warning');
-      openLoginModal();
-      return;
-    }
-    loadHanoiSample();
-  });
-  document.getElementById('btnQuickSample')?.addEventListener('click', () => {
-    if (!isUserAdmin()) {
-      showToast('โหมดอ่านอย่างเดียว: กรุณาเข้าสู่ระบบเพื่อดำเนินการ', 'warning');
-      openLoginModal();
-      return;
-    }
-    loadHanoiSample();
-    document.getElementById('btnAddToBoard')?.click();
-  });
-
   // Action: Add Numbers to Board
   document.getElementById('btnAddToBoard').addEventListener('click', () => {
     if (!isUserAdmin()) {
@@ -617,19 +566,11 @@ document.addEventListener('DOMContentLoaded', () => {
               <i data-lucide="edit-3" class="w-4 h-4"></i>
               <span>ไปที่กล่องวางตัวเลข</span>
             </button>
-            <button id="btnEmptySample" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3.5 py-2 rounded-lg transition inline-flex items-center space-x-1">
-              <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
-              <span>โหลดตัวอย่าง</span>
-            </button>
           </div>
         </div>
       `;
       document.getElementById('btnGoToInput')?.addEventListener('click', () => {
         switchTab('tab-input');
-      });
-      document.getElementById('btnEmptySample')?.addEventListener('click', () => {
-        loadHanoiSample();
-        document.getElementById('btnAddToBoard').click();
       });
       if (window.lucide) lucide.createIcons();
       return;
