@@ -52,10 +52,19 @@ class LotteryStorage {
     // 2. Check localStorage
     try {
       const data = localStorage.getItem(STORAGE_KEY_SUPABASE);
-      return data ? JSON.parse(data) : { url: '', anonKey: '' };
-    } catch (e) {
-      return { url: '', anonKey: '' };
-    }
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed && (parsed.url || parsed.anonKey)) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+
+    // 3. Default connected Supabase credentials
+    return {
+      url: 'https://bqlwgvcrkwneismlkzhx.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxbHdndmNya3duZWlzbWxremh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNjAyMTksImV4cCI6MjEwNjkzNjIxOX0.3DLrAF-41jfosJF3Est1QYWjJM1xx0fa1ZZnRcMa19M'
+    };
   }
 
   saveSupabaseConfig(url, anonKey) {
