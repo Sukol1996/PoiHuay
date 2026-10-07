@@ -94,8 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     listEl.querySelectorAll('.btn-select-lottery').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-name');
-        storage.session.lotteryName = name;
-        storage.saveSession();
+        storage.setSessionLottery(name, storage.session.lotteryDate);
         renderLotterySelectDropdown();
         renderLotteryManagerList();
         renderBoard();
@@ -160,8 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Auto select this newly added lottery
-    storage.session.lotteryName = newName;
-    storage.saveSession();
+    storage.setSessionLottery(newName, storage.session.lotteryDate);
 
     inputNewLotteryName.value = '';
     renderLotterySelectDropdown();
@@ -427,16 +425,25 @@ document.addEventListener('DOMContentLoaded', () => {
       boardContainer.innerHTML = `
         <div class="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 space-y-3">
           <i data-lucide="layout-grid" class="w-12 h-12 mx-auto text-slate-300"></i>
-          <div class="font-bold text-slate-700 text-base">ยังไม่มีตัวเลขในกระดาน</div>
-          <p class="text-xs text-slate-500 max-w-sm mx-auto">
-            กรุณาไปที่แท็บ "1. กล่องวางตัวเลข" เพื่อวางตัวเลขและระบุชื่อเว็ป หรือกดปุ่ม "โหลดตัวอย่าง" ด้านบน
+          <div class="font-bold text-slate-700 text-base">ยังไม่มีตัวเลขในกระดานของ "${escapeHtml(storage.session.lotteryName)}"</div>
+          <p class="text-xs text-slate-500 max-w-md mx-auto">
+            แต่ละหวยแยกชุดตัวเลขออกจากกันเป็นอิสระ สามารถไปที่แท็บ <b>"1. กล่องวางตัวเลข"</b> เพื่อวางตัวเลขของหวยนี้ได้ทันที
           </p>
-          <button id="btnEmptySample" class="mt-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg transition inline-flex items-center space-x-1">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
-            <span>โหลดตัวอย่างทันที</span>
-          </button>
+          <div class="flex justify-center space-x-2 pt-2">
+            <button id="btnGoToInput" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg transition inline-flex items-center space-x-1.5 shadow-sm">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+              <span>ไปที่กล่องวางตัวเลข</span>
+            </button>
+            <button id="btnEmptySample" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3.5 py-2 rounded-lg transition inline-flex items-center space-x-1">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+              <span>โหลดตัวอย่าง</span>
+            </button>
+          </div>
         </div>
       `;
+      document.getElementById('btnGoToInput')?.addEventListener('click', () => {
+        switchTab('tab-input');
+      });
       document.getElementById('btnEmptySample')?.addEventListener('click', () => {
         loadHanoiSample();
         document.getElementById('btnAddToBoard').click();

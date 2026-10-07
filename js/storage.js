@@ -1,9 +1,11 @@
 /**
  * Lottery Storage & Supabase Sync Engine
- * จัดการบันทึกข้อมูลตัวเลขและชื่อหวย ทั้งใน LocalStorage และบันทึกไปยัง Supabase Cloud Database อัตโนมัติทุกครั้งที่มีการเปลี่ยนแปลง
+ * จัดการแยกข้อมูลตัวเลขของแต่ละหวยอย่างเป็นอิสระ (Each lottery has its own independent batches)
+ * แต่ละหวยจะมีชุดตัวเลขของตัวเอง พร้อมบันทึกไปยัง Supabase Cloud Database แบบเรียลไทม์
  */
 
 const STORAGE_KEY_SESSION = 'LOTTERY_NUMBERS_SESSION';
+const STORAGE_KEY_BOARDS = 'LOTTERY_BOARDS_STORE';
 const STORAGE_KEY_RECENT_WEBSITES = 'LOTTERY_RECENT_WEBSITES';
 const STORAGE_KEY_LOTTERY_LIST = 'LOTTERY_NAMES_LIST';
 const STORAGE_KEY_SUPABASE = 'LOTTERY_SUPABASE_CONFIG';
@@ -18,15 +20,12 @@ const defaultLotteryList = [
   'หวยหุ้น'
 ];
 
-const defaultSession = {
-  lotteryName: 'ฮานอยพิเศษ',
-  lotteryDate: new Date().toISOString().split('T')[0],
-  batches: []
-};
-
 class LotteryStorage {
   constructor() {
-    this.session = this.loadLocalSession();
+    this._lotteryName = 'ฮานอยพิเศษ';
+    this._lotteryDate = new Date().toISOString().split('T')[0];
+
+    this.boardsData = this.loadAllBoardsData();
     this.recentWebsites = this.loadRecentWebsites();
     this.lotteryList = this.loadLocalLotteryList();
     this.supabaseConfig = this.loadSupabaseConfig();
@@ -37,11 +36,92 @@ class LotteryStorage {
     this.cloudSaveListeners = [];
     this.realtimeChannel = null;
 
+    // Load initial session state (active lottery and date)
+    this.loadInitialSession();
+
+    // Setup session proxy for 100% backward compatibility
+    const self = this;
+    this.session = {
+      get lotteryName() { return self._lotteryName; },
+      set lotteryName(val) { if (val) self._lotteryName = val.trim(); },
+      get lotteryDate() { return self._lotteryDate; },
+      set lotteryDate(val) { if (val) self._lotteryDate = val.trim(); },
+      get batches() { return self.getBatchesFor(self._lotteryName, self._lotteryDate); },
+      set batches(val) { self.setBatchesFor(self._lotteryName, self._lotteryDate, val); }
+    };
+
     this.initSupabaseClient();
     this.ensureSupabaseReady();
   }
 
-  // Poll for window.supabase CDN availability if slightly delayed
+  // Generate unique isolated board key for each lottery and date
+  getBoardKey(lotteryName = this._lotteryName, lotteryDate = this._lotteryDate) {
+    return `${(lotteryName || 'ฮานอยพิเศษ').trim()}__${(lotteryDate || '').trim()}`;
+  }
+
+  // Get batches specifically for a lottery
+  getBatchesFor(lotteryName, lotteryDate) {
+    const key = this.getBoardKey(lotteryName, lotteryDate);
+    if (!this.boardsData[key]) {
+      this.boardsData[key] = [];
+    }
+    return this.boardsData[key];
+  }
+
+  // Set batches specifically for a lottery
+  setBatchesFor(lotteryName, lotteryDate, batches) {
+    const key = this.getBoardKey(lotteryName, lotteryDate);
+    this.boardsData[key] = Array.isArray(batches) ? batches : [];
+    this.saveAllBoardsData();
+  }
+
+  // Load all isolated boards from local storage
+  loadAllBoardsData() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_BOARDS);
+      if (data) {
+        return JSON.parse(data) || {};
+      }
+      
+      // Backward compatibility: migrate legacy single-session batches
+      const legacySession = localStorage.getItem(STORAGE_KEY_SESSION);
+      if (legacySession) {
+        const parsed = JSON.parse(legacySession);
+        if (parsed && parsed.batches && parsed.batches.length > 0) {
+          const initLottery = parsed.lotteryName || 'ฮานอยพิเศษ';
+          const initDate = parsed.lotteryDate || new Date().toISOString().split('T')[0];
+          const legacyKey = `${initLottery.trim()}__${initDate.trim()}`;
+          return { [legacyKey]: parsed.batches };
+        }
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  // Save all isolated boards to local storage
+  saveAllBoardsData() {
+    try {
+      localStorage.setItem(STORAGE_KEY_BOARDS, JSON.stringify(this.boardsData));
+      this.saveLocalSession();
+    } catch (e) {
+      console.warn('Error saving boards data:', e);
+    }
+  }
+
+  loadInitialSession() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_SESSION);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed.lotteryName) this._lotteryName = parsed.lotteryName;
+        if (parsed.lotteryDate) this._lotteryDate = parsed.lotteryDate;
+      }
+    } catch (e) {}
+  }
+
+  // Poll for window.supabase CDN availability
   ensureSupabaseReady() {
     if (!window.supabase) {
       let attempts = 0;
@@ -61,14 +141,12 @@ class LotteryStorage {
   // Supabase Configuration Management
   // ==========================================
   loadSupabaseConfig() {
-    // 1. Check window.SUPABASE_CONFIG (Injected from Streamlit secrets)
     if (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.anonKey) {
       return {
         url: window.SUPABASE_CONFIG.url.trim(),
         anonKey: window.SUPABASE_CONFIG.anonKey.trim()
       };
     }
-    // 2. Check localStorage
     try {
       const data = localStorage.getItem(STORAGE_KEY_SUPABASE);
       if (data) {
@@ -79,7 +157,6 @@ class LotteryStorage {
       }
     } catch (e) {}
 
-    // 3. Default connected Supabase credentials
     return {
       url: 'https://bqlwgvcrkwneismlkzhx.supabase.co',
       anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxbHdndmNya3duZWlzbWxremh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNjAyMTksImV4cCI6MjEwNjkzNjIxOX0.3DLrAF-41jfosJF3Est1QYWjJM1xx0fa1ZZnRcMa19M'
@@ -132,7 +209,6 @@ class LotteryStorage {
           this.supabaseConfig.url,
           this.supabaseConfig.anonKey
         );
-        // Quick verification ping
         const { error } = await this.supabaseClient.from('lottery_names').select('name').limit(1);
         if (error) {
           console.warn('Supabase test query warning:', error.message);
@@ -153,7 +229,6 @@ class LotteryStorage {
     this.notifyStatusChange();
   }
 
-  // Realtime updates from Supabase
   setupRealtimeSubscription() {
     if (!this.supabaseClient) return;
     try {
@@ -178,9 +253,7 @@ class LotteryStorage {
             this.syncFromSupabase();
           }
         )
-        .subscribe((status) => {
-          console.log('Supabase Realtime status:', status);
-        });
+        .subscribe();
     } catch (e) {
       console.warn('Realtime subscription error:', e);
     }
@@ -224,10 +297,14 @@ class LotteryStorage {
   }
 
   // ==========================================
-  // Cloud Sync
+  // Cloud Sync (ดึงข้อมูลเฉพาะของหวยที่กำลังเลือก)
   // ==========================================
   async syncFromSupabase() {
     if (!this.supabaseClient || !this.isSupabaseConnected) return;
+
+    const targetLottery = this._lotteryName;
+    const targetDate = this._lotteryDate;
+    const boardKey = this.getBoardKey(targetLottery, targetDate);
 
     try {
       // 1. Fetch Lottery Names
@@ -243,30 +320,28 @@ class LotteryStorage {
         this.saveLocalLotteryList();
       }
 
-      // 2. Fetch Batches for current lotteryName and lotteryDate
+      // 2. Fetch Batches specifically for current lotteryName and lotteryDate
       const { data: batches, error: errBatches } = await this.supabaseClient
         .from('lottery_batches')
         .select('*')
-        .eq('lottery_name', this.session.lotteryName)
-        .eq('lottery_date', this.session.lotteryDate);
+        .eq('lottery_name', targetLottery)
+        .eq('lottery_date', targetDate);
 
       if (!errBatches && batches) {
-        if (batches.length > 0) {
-          this.session.batches = batches.map(b => ({
-            id: b.id,
-            website: b.website,
-            type: b.type,
-            typeName: b.type_name,
-            numbers: Array.isArray(b.numbers) ? b.numbers : JSON.parse(b.numbers || '[]'),
-            badgeText: b.badge_text,
-            count: b.count,
-            createdAt: b.created_at
-          }));
-          this.saveLocalSession();
-        } else if (this.session.batches && this.session.batches.length > 0) {
-          // If Supabase table is empty for this date but local has batches, sync them UP to Supabase!
-          this.syncAllLocalBatchesToSupabase();
-        }
+        // อัปเดตข้อมูลของหวยนี้โดยเฉพาะ ไม่ปนกับหวยอื่น
+        this.boardsData[boardKey] = batches.map(b => ({
+          id: b.id,
+          lotteryName: b.lottery_name,
+          lotteryDate: b.lottery_date,
+          website: b.website,
+          type: b.type,
+          typeName: b.type_name,
+          numbers: Array.isArray(b.numbers) ? b.numbers : JSON.parse(b.numbers || '[]'),
+          badgeText: b.badge_text,
+          count: b.count,
+          createdAt: b.created_at
+        }));
+        this.saveAllBoardsData();
       }
 
       this.notifySync();
@@ -275,55 +350,24 @@ class LotteryStorage {
     }
   }
 
-  // Push all local batches to Supabase Cloud
-  async syncAllLocalBatchesToSupabase() {
-    if (!this.supabaseClient || !this.isSupabaseConnected || this.session.batches.length === 0) return;
-
-    try {
-      const rows = this.session.batches.map(b => ({
-        id: b.id,
-        lottery_name: this.session.lotteryName,
-        lottery_date: this.session.lotteryDate,
-        website: b.website,
-        type: b.type,
-        type_name: b.typeName,
-        numbers: b.numbers,
-        badge_text: b.badgeText,
-        count: b.count,
-        created_at: b.createdAt
-      }));
-
-      const { error } = await this.supabaseClient.from('lottery_batches').upsert(rows);
-      if (!error) {
-        console.log('Synced local batches up to Supabase Cloud:', rows.length);
-        this.notifyCloudSave({ type: 'sync_up', count: rows.length });
-      }
-    } catch (e) {
-      console.warn('Error syncing local batches up to Supabase:', e);
-    }
-  }
-
+  // เปลี่ยนชื่อหวยหรืองวดวันที่ (จะสลับชุดข้อมูลไปยังหวยนั้นทันที)
   setSessionLottery(lotteryName, lotteryDate) {
-    if (lotteryName) this.session.lotteryName = lotteryName;
-    if (lotteryDate) this.session.lotteryDate = lotteryDate;
+    if (lotteryName) this._lotteryName = lotteryName.trim();
+    if (lotteryDate) this._lotteryDate = lotteryDate.trim();
     this.saveLocalSession();
     this.syncFromSupabase();
   }
 
   // ==========================================
-  // Local Storage Helpers & Backward Compatibility
+  // Local Storage Helpers
   // ==========================================
-  loadLocalSession() {
-    try {
-      const data = localStorage.getItem(STORAGE_KEY_SESSION);
-      return data ? { ...defaultSession, ...JSON.parse(data) } : { ...defaultSession };
-    } catch (e) {
-      return { ...defaultSession };
-    }
-  }
-
   saveLocalSession() {
-    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(this.session));
+    try {
+      localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+        lotteryName: this._lotteryName,
+        lotteryDate: this._lotteryDate
+      }));
+    } catch (e) {}
   }
 
   saveSession() {
@@ -367,7 +411,7 @@ class LotteryStorage {
   }
 
   // ==========================================
-  // Lottery Names Management (บันทึกขึ้น Supabase ทุกครั้ง)
+  // Lottery Names Management
   // ==========================================
   async addLotteryName(name) {
     if (!name || !name.trim()) return false;
@@ -376,7 +420,6 @@ class LotteryStorage {
       this.lotteryList.push(trimmed);
       this.saveLocalLotteryList();
 
-      // บันทึกลง Supabase ทันที
       if (this.supabaseClient) {
         this.supabaseClient
           .from('lottery_names')
@@ -404,12 +447,11 @@ class LotteryStorage {
     }
     this.saveLocalLotteryList();
 
-    if (this.session.lotteryName === name) {
-      this.session.lotteryName = this.lotteryList[0];
+    if (this._lotteryName === name) {
+      this._lotteryName = this.lotteryList[0];
       this.saveLocalSession();
     }
 
-    // ลบออกจาก Supabase ทันที
     if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_names')
@@ -428,7 +470,7 @@ class LotteryStorage {
   }
 
   // ==========================================
-  // Batch Numbers Management (บันทึกขึ้น Supabase ทุกครั้ง)
+  // Batch Numbers Management (แยกอิสระตามชื่อหวย)
   // ==========================================
   addBatch({ website, type, numbers, badgeText = '' }) {
     if (!numbers || numbers.length === 0) return null;
@@ -443,45 +485,53 @@ class LotteryStorage {
 
     this.saveRecentWebsites(site);
 
+    const lotName = this._lotteryName;
+    const lotDate = this._lotteryDate;
+    const boardKey = this.getBoardKey(lotName, lotDate);
+    const currentBatches = this.getBatchesFor(lotName, lotDate);
+
     const batch = {
       id,
+      lotteryName: lotName,
+      lotteryDate: lotDate,
       website: site,
       type,
       typeName,
       numbers: [...numbers].sort((a, b) => a.localeCompare(b)),
-      badgeText: badgeText || `ตัดยอด`,
+      badgeText: badgeText || 'ตัดยอด',
       count: numbers.length,
       createdAt: new Date().toISOString()
     };
 
-    const existingIndex = this.session.batches.findIndex(
+    const existingIndex = currentBatches.findIndex(
       b => b.website.toLowerCase() === site.toLowerCase() && b.type === type
     );
 
     let savedBatch = null;
 
     if (existingIndex !== -1) {
-      const combined = Array.from(new Set([...this.session.batches[existingIndex].numbers, ...batch.numbers])).sort((a, b) => a.localeCompare(b));
-      this.session.batches[existingIndex].numbers = combined;
-      this.session.batches[existingIndex].count = combined.length;
-      this.session.batches[existingIndex].createdAt = new Date().toISOString();
-      if (badgeText) this.session.batches[existingIndex].badgeText = badgeText;
-      savedBatch = this.session.batches[existingIndex];
+      const combined = Array.from(new Set([...currentBatches[existingIndex].numbers, ...batch.numbers])).sort((a, b) => a.localeCompare(b));
+      currentBatches[existingIndex].numbers = combined;
+      currentBatches[existingIndex].count = combined.length;
+      currentBatches[existingIndex].createdAt = new Date().toISOString();
+      if (badgeText) currentBatches[existingIndex].badgeText = badgeText;
+      savedBatch = currentBatches[existingIndex];
     } else {
-      this.session.batches.push(batch);
+      currentBatches.push(batch);
       savedBatch = batch;
     }
 
-    this.saveLocalSession();
+    this.boardsData[boardKey] = currentBatches;
+    this.saveAllBoardsData();
 
-    // บันทึก/อัปเดตลง Supabase Cloud ทันทีทุกครั้ง
+    // บันทึกลง Supabase เฉพาะของหวยนี้
     if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_batches')
         .upsert({
           id: savedBatch.id,
-          lottery_name: this.session.lotteryName,
-          lottery_date: this.session.lotteryDate,
+          lottery_name: lotName,
+          lottery_date: lotDate,
           website: savedBatch.website,
           type: savedBatch.type,
           type_name: savedBatch.typeName,
@@ -507,7 +557,12 @@ class LotteryStorage {
 
   // Update existing batch header (แก้ไขชื่อเว็ป หรือ ป้ายกำกับ 30/3, ตัดยอด)
   updateBatch(batchId, updates = {}) {
-    const batch = this.session.batches.find(b => b.id === batchId);
+    const lotName = this._lotteryName;
+    const lotDate = this._lotteryDate;
+    const boardKey = this.getBoardKey(lotName, lotDate);
+    const currentBatches = this.getBatchesFor(lotName, lotDate);
+
+    const batch = currentBatches.find(b => b.id === batchId);
     if (!batch) return null;
 
     let hasChanges = false;
@@ -532,7 +587,8 @@ class LotteryStorage {
     if (!hasChanges) return batch;
 
     batch.updatedAt = new Date().toISOString();
-    this.saveLocalSession();
+    this.boardsData[boardKey] = currentBatches;
+    this.saveAllBoardsData();
 
     // บันทึกการแก้ไขลง Supabase ทันที
     if (this.supabaseClient) {
@@ -561,8 +617,13 @@ class LotteryStorage {
   }
 
   deleteBatch(batchId) {
-    this.session.batches = this.session.batches.filter(b => b.id !== batchId);
-    this.saveLocalSession();
+    const lotName = this._lotteryName;
+    const lotDate = this._lotteryDate;
+    const boardKey = this.getBoardKey(lotName, lotDate);
+    const currentBatches = this.getBatchesFor(lotName, lotDate);
+
+    this.boardsData[boardKey] = currentBatches.filter(b => b.id !== batchId);
+    this.saveAllBoardsData();
 
     // ลบออกจาก Supabase Cloud ทันที
     if (this.supabaseClient) {
@@ -582,13 +643,14 @@ class LotteryStorage {
   }
 
   clearAllBatches() {
-    const lotName = this.session.lotteryName;
-    const lotDate = this.session.lotteryDate;
+    const lotName = this._lotteryName;
+    const lotDate = this._lotteryDate;
+    const boardKey = this.getBoardKey(lotName, lotDate);
 
-    this.session.batches = [];
-    this.saveLocalSession();
+    this.boardsData[boardKey] = [];
+    this.saveAllBoardsData();
 
-    // ล้างข้อมูลใน Supabase Cloud ทันที
+    // ล้างเฉพาะข้อมูลของหวยนี้บน Supabase (หวยอื่นยังอยู่ครบ!)
     if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_batches')
@@ -607,12 +669,14 @@ class LotteryStorage {
   }
 
   getBatchesByType(type) {
-    return this.session.batches.filter(b => b.type === type);
+    const currentBatches = this.getBatchesFor(this._lotteryName, this._lotteryDate);
+    return currentBatches.filter(b => b.type === type);
   }
 
   getWebsites() {
     const set = new Set();
-    this.session.batches.forEach(b => set.add(b.website));
+    const currentBatches = this.getBatchesFor(this._lotteryName, this._lotteryDate);
+    currentBatches.forEach(b => set.add(b.website));
     return Array.from(set);
   }
 }
