@@ -88,14 +88,30 @@ body {
   border-top: 1.5px solid #94a3b8 !important;
 }
 
-/* Visual Divider for 50 numbers (Red line divider every 5 rows / 50 numbers like user's drawing) */
+/* Visual Divider for 50 numbers & Action Row */
 .excel-table tr.chunk-divider-row td {
   border-bottom: 2.5px solid #ef4444 !important;
+}
+
+.excel-table tr.chunk-action-row td {
+  border-top: 2.5px solid #ef4444 !important;
+  border-bottom: 1.5px solid #cbd5e1 !important;
+  background-color: #f8fafc;
+  padding: 4px 8px;
+}
+
+.excel-table tr.chunk-action-row button.is-copied {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
 }
 
 @media print {
   .excel-table tr.chunk-divider-row td {
     border-bottom: 2px solid #dc2626 !important;
+  }
+  .excel-table tr.chunk-action-row {
+    display: none !important;
   }
 }
 

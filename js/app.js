@@ -411,6 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // RENDER EXCEL BOARD (กระดานตัดเลข)
   // ==========================================
+  // Set tracking copied chunk IDs across tables e.g. "batchId_chunk_0"
+  const copiedChunksState = new Set();
+
   function renderBoard() {
     updateDashboardStats();
     boardContainer.innerHTML = '';
@@ -572,24 +575,67 @@ document.addEventListener('DOMContentLoaded', () => {
     // Rows
     let tbodyHtml = '<tbody class="divide-y divide-slate-200">';
     const rowsPerChunk = Math.max(1, Math.round(50 / gridData.colCount));
+    let currentChunkIndex = 0;
+    let currentChunkNumbers = [];
 
     gridData.rows.forEach((row, rowIndex) => {
-      const isDivider = ((rowIndex + 1) % rowsPerChunk === 0) && (rowIndex < gridData.rows.length - 1);
-      const rowClass = isDivider ? 'chunk-divider-row' : '';
-      tbodyHtml += `<tr class="${rowClass}">`;
+      tbodyHtml += '<tr>';
       row.forEach(cell => {
         if (!cell) {
           tbodyHtml += '<td class="border border-slate-300 bg-slate-50/40 p-1"></td>';
         } else {
+          currentChunkNumbers.push(cell);
           const isMatched = searchQuery && cell.includes(searchQuery);
           tbodyHtml += `
-            <td class="excel-cell font-num border border-slate-300 ${isMatched ? 'highlight-search' : ''}" data-number="${cell}" ${isDivider ? 'title="เส้นแบ่งชุดละ 50 ตัว"' : ''}>
+            <td class="excel-cell font-num border border-slate-300 ${isMatched ? 'highlight-search' : ''}" data-number="${cell}">
               <div class="font-bold text-slate-900 tracking-wider">${cell}</div>
             </td>
           `;
         }
       });
       tbodyHtml += '</tr>';
+
+      // Check if this row completes a 50-number chunk OR is the last row of the table
+      const isChunkEnd = ((rowIndex + 1) % rowsPerChunk === 0);
+      const isLastRow = (rowIndex === gridData.rows.length - 1);
+
+      if (isChunkEnd || isLastRow) {
+        if (currentChunkNumbers.length > 0) {
+          const chunkNum = currentChunkIndex + 1;
+          const count = currentChunkNumbers.length;
+          // Sort chunk numbers ascending
+          const sortedChunk = [...currentChunkNumbers].sort((a, b) => a.localeCompare(b));
+          const chunkStr = sortedChunk.join(' ');
+          const chunkKey = `${batch.id}_chunk_${currentChunkIndex}`;
+          const isAlreadyCopied = copiedChunksState.has(chunkKey);
+
+          tbodyHtml += `
+            <tr class="chunk-action-row bg-slate-50/90 no-print" data-chunk-key="${chunkKey}">
+              <td colspan="${gridData.colCount}" class="py-1 px-2 border-x border-slate-300">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-slate-700 font-num flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full ${isAlreadyCopied ? 'bg-emerald-500' : 'bg-rose-500'} inline-block"></span>
+                    <span>ชุดที่ ${chunkNum} (${count} ตัว)</span>
+                  </span>
+                  <button type="button" 
+                          class="btn-copy-chunk-row inline-flex items-center space-x-1 text-xs font-bold px-2.5 py-0.5 rounded transition shadow-xs cursor-pointer ${isAlreadyCopied ? 'bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 is-copied' : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300'}"
+                          data-chunk-key="${chunkKey}"
+                          data-chunk-num="${chunkNum}"
+                          data-count="${count}"
+                          data-numbers="${chunkStr}"
+                          title="คัดลอกตัวเลขชุดที่ ${chunkNum} (${count} ตัว) คั่นด้วยวรรค">
+                    <i data-lucide="${isAlreadyCopied ? 'check' : 'copy'}" class="w-3.5 h-3.5 ${isAlreadyCopied ? 'text-white' : 'text-emerald-600'}"></i>
+                    <span>${isAlreadyCopied ? '✓ คัดลอกแล้ว' : `คัดลอกชุดที่ ${chunkNum} (${count} ตัว)`}</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+
+          currentChunkIndex++;
+          currentChunkNumbers = [];
+        }
+      }
     });
     tbodyHtml += '</tbody>';
 
@@ -608,15 +654,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
                 <button class="btn-copy-batch-space text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-semibold border border-slate-200" data-id="${batch.id}" title="คัดลอกตัวเลขทั้งหมด คั่นด้วยวรรค (spacebar)">
                   <i data-lucide="copy" class="w-3 h-3 text-slate-500"></i>
-                  <span>คัดลอกเลข</span>
+                  <span>คัดลอกทั้งหมด</span>
                 </button>
                 <button class="btn-copy-batch-50 text-emerald-700 hover:bg-emerald-100 bg-emerald-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-bold border border-emerald-200" data-id="${batch.id}" title="คัดลอกตัวเลขโดยเว้นบรรทัดคั่นทุกๆ 50 ตัว">
                   <i data-lucide="copy-check" class="w-3 h-3 text-emerald-600"></i>
                   <span>คั่น 50 ตัว</span>
                 </button>
-                <button class="btn-open-batch-chunks-50 text-amber-700 hover:bg-amber-100 bg-amber-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] font-bold border border-amber-200" data-id="${batch.id}" title="เปิดดูและคัดลอกแยกทีละชุด ชุดละ 50 ตัว">
-                  <i data-lucide="layers" class="w-3 h-3 text-amber-600"></i>
-                  <span>แบ่งชุด 50</span>
+                <button class="btn-reset-batch-checks text-slate-400 hover:text-rose-600 hover:bg-rose-50 px-1.5 py-0.5 rounded transition flex items-center space-x-1 text-[11px] border border-slate-200" data-id="${batch.id}" title="รีเซ็ตเครื่องหมายเช็คถูกทั้งหมดของตารางนี้">
+                  <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                  <span>รีเซ็ตเช็ค</span>
                 </button>
               </div>
               <div class="flex items-center space-x-1.5 ml-2">
@@ -715,6 +761,62 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           showToast('ไม่มีตัวเลขในตารางนี้สำหรับแบ่งชุด', 'warning');
         }
+      });
+    });
+
+    // Copy 50-number chunk directly under the table section (เปลี่ยนเป็นเครื่องหมายเช็คถูก)
+    document.querySelectorAll('.btn-copy-chunk-row').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const chunkKey = btn.getAttribute('data-chunk-key');
+        const chunkNum = btn.getAttribute('data-chunk-num');
+        const count = btn.getAttribute('data-count');
+        const numbers = btn.getAttribute('data-numbers') || '';
+
+        if (!numbers) {
+          showToast('ไม่มีตัวเลขในชุดนี้สำหรับคัดลอก', 'warning');
+          return;
+        }
+
+        navigator.clipboard.writeText(numbers).then(() => {
+          // Record copied state
+          copiedChunksState.add(chunkKey);
+
+          // Update button style & icon to checkmark
+          btn.classList.remove('bg-white', 'hover:bg-emerald-50', 'text-emerald-800', 'border-emerald-300');
+          btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700', 'text-white', 'border-emerald-700', 'is-copied');
+          btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 text-white"></i><span>✓ คัดลอกแล้ว</span>`;
+
+          // Turn indicator dot to green
+          const tr = btn.closest('tr');
+          const dot = tr?.querySelector('.w-2.h-2');
+          if (dot) {
+            dot.classList.remove('bg-rose-500');
+            dot.classList.add('bg-emerald-500');
+          }
+
+          if (window.lucide) lucide.createIcons();
+
+          showToast(`✓ คัดลอกชุดที่ ${chunkNum} (${count} ตัว) เรียบร้อย! เปลี่ยนเป็นเช็คถูกแล้ว`, 'success');
+        }).catch(err => {
+          console.error(err);
+          showToast('ไม่สามารถคัดลอกได้ กรุณาลองใหม่อีกครั้ง', 'error');
+        });
+      });
+    });
+
+    // Reset checkmarks for batch
+    document.querySelectorAll('.btn-reset-batch-checks').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const batchId = btn.getAttribute('data-id');
+        Array.from(copiedChunksState).forEach(k => {
+          if (k.startsWith(`${batchId}_chunk_`)) {
+            copiedChunksState.delete(k);
+          }
+        });
+        renderBoard();
+        showToast('รีเซ็ตเครื่องหมายเช็คถูกของตารางนี้เรียบร้อย', 'info');
       });
     });
 
