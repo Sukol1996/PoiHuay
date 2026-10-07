@@ -695,9 +695,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const isConn = isConnected !== undefined ? isConnected : storage.isSupabaseConnected;
     const cfg = config || storage.supabaseConfig;
 
+    const supabaseSyncBadge = document.getElementById('supabaseSyncBadge');
+
     if (isConn) {
       if (supabaseStatusDot) supabaseStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
       if (supabaseStatusLabel) supabaseStatusLabel.textContent = 'Supabase: ออนไลน์';
+      if (supabaseSyncBadge) supabaseSyncBadge.classList.remove('opacity-40');
       if (modalSupabaseStatusDot) modalSupabaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
       if (modalSupabaseStatusText) modalSupabaseStatusText.textContent = 'สถานะ: เชื่อมต่อฐานข้อมูลสำเร็จ (Online Cloud Sync)';
       if (modalSupabaseBadge) {
@@ -707,6 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       if (supabaseStatusDot) supabaseStatusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
       if (supabaseStatusLabel) supabaseStatusLabel.textContent = 'Supabase: ออฟไลน์';
+      if (supabaseSyncBadge) supabaseSyncBadge.classList.add('opacity-40');
       if (modalSupabaseStatusDot) modalSupabaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
       if (modalSupabaseStatusText) modalSupabaseStatusText.textContent = 'สถานะ: ยังไม่ได้เชื่อมต่อ (ใช้งานออฟไลน์)';
       if (modalSupabaseBadge) {
@@ -798,6 +802,22 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBoard();
     updateDashboardStats();
     showToast('ซิงก์ข้อมูลล่าสุดจาก Supabase Cloud เรียบร้อย', 'info');
+  });
+
+  storage.onCloudSave((detail) => {
+    if (detail.type === 'batch_save') {
+      showToast(`☁️ บันทึกลง Supabase สำเร็จ: ${escapeHtml(detail.batch.website)} (${detail.batch.typeName})`, 'success');
+    } else if (detail.type === 'batch_delete') {
+      showToast('☁️ ลบข้อมูลใน Supabase เรียบร้อยแล้ว', 'info');
+    } else if (detail.type === 'clear_batches') {
+      showToast('☁️ ล้างข้อมูลกระดานใน Supabase เรียบร้อยแล้ว', 'info');
+    } else if (detail.type === 'name_add') {
+      showToast(`☁️ บันทึกชื่อหวย "${detail.name}" ลง Supabase เรียบร้อย`, 'success');
+    } else if (detail.type === 'name_delete') {
+      showToast(`☁️ ลบชื่อหวย "${detail.name}" ออกจาก Supabase แล้ว`, 'info');
+    } else if (detail.type === 'sync_up') {
+      showToast(`☁️ ซิงก์ข้อมูล ${detail.count} ตารางขึ้น Supabase สำเร็จ`, 'success');
+    }
   });
 
   // Initialize Supabase Status Indicator

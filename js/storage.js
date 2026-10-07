@@ -1,6 +1,6 @@
 /**
  * Lottery Storage & Supabase Sync Engine
- * จัดการบันทึกข้อมูลตัวเลขและชื่อหวย ทั้งใน LocalStorage และเชื่อมต่อกับ Supabase Cloud Database
+ * จัดการบันทึกข้อมูลตัวเลขและชื่อหวย ทั้งใน LocalStorage และบันทึกไปยัง Supabase Cloud Database อัตโนมัติทุกครั้งที่มีการเปลี่ยนแปลง
  */
 
 const STORAGE_KEY_SESSION = 'LOTTERY_NUMBERS_SESSION';
@@ -34,8 +34,27 @@ class LotteryStorage {
     this.isSupabaseConnected = false;
     this.syncListeners = [];
     this.statusListeners = [];
+    this.cloudSaveListeners = [];
+    this.realtimeChannel = null;
 
     this.initSupabaseClient();
+    this.ensureSupabaseReady();
+  }
+
+  // Poll for window.supabase CDN availability if slightly delayed
+  ensureSupabaseReady() {
+    if (!window.supabase) {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (window.supabase) {
+          clearInterval(interval);
+          this.initSupabaseClient();
+        } else if (attempts > 20) {
+          clearInterval(interval);
+        }
+      }, 250);
+    }
   }
 
   // ==========================================
@@ -76,6 +95,9 @@ class LotteryStorage {
   clearSupabaseConfig() {
     this.supabaseConfig = { url: '', anonKey: '' };
     localStorage.removeItem(STORAGE_KEY_SUPABASE);
+    if (this.supabaseClient && this.realtimeChannel) {
+      try { this.supabaseClient.removeChannel(this.realtimeChannel); } catch (e) {}
+    }
     this.supabaseClient = null;
     this.isSupabaseConnected = false;
     this.notifyStatusChange();
@@ -114,10 +136,10 @@ class LotteryStorage {
         const { error } = await this.supabaseClient.from('lottery_names').select('name').limit(1);
         if (error) {
           console.warn('Supabase test query warning:', error.message);
-          // If table not created yet or network issue, mark false
           this.isSupabaseConnected = false;
         } else {
           this.isSupabaseConnected = true;
+          this.setupRealtimeSubscription();
           this.syncFromSupabase();
         }
       } catch (err) {
@@ -131,6 +153,40 @@ class LotteryStorage {
     this.notifyStatusChange();
   }
 
+  // Realtime updates from Supabase
+  setupRealtimeSubscription() {
+    if (!this.supabaseClient) return;
+    try {
+      if (this.realtimeChannel) {
+        this.supabaseClient.removeChannel(this.realtimeChannel);
+      }
+      this.realtimeChannel = this.supabaseClient
+        .channel('poi_huay_live_sync')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'lottery_batches' },
+          (payload) => {
+            console.log('Realtime change from Supabase on lottery_batches:', payload.eventType);
+            this.syncFromSupabase();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'lottery_names' },
+          (payload) => {
+            console.log('Realtime change from Supabase on lottery_names:', payload.eventType);
+            this.syncFromSupabase();
+          }
+        )
+        .subscribe((status) => {
+          console.log('Supabase Realtime status:', status);
+        });
+    } catch (e) {
+      console.warn('Realtime subscription error:', e);
+    }
+  }
+
+  // Event Listeners
   onSync(callback) {
     if (typeof callback === 'function') {
       this.syncListeners.push(callback);
@@ -152,6 +208,18 @@ class LotteryStorage {
   notifyStatusChange() {
     this.statusListeners.forEach(cb => {
       try { cb(this.isSupabaseConnected, this.supabaseConfig); } catch (e) { console.error(e); }
+    });
+  }
+
+  onCloudSave(callback) {
+    if (typeof callback === 'function') {
+      this.cloudSaveListeners.push(callback);
+    }
+  }
+
+  notifyCloudSave(detail) {
+    this.cloudSaveListeners.forEach(cb => {
+      try { cb(detail); } catch (e) { console.error(e); }
     });
   }
 
@@ -195,12 +263,43 @@ class LotteryStorage {
             createdAt: b.created_at
           }));
           this.saveLocalSession();
+        } else if (this.session.batches && this.session.batches.length > 0) {
+          // If Supabase table is empty for this date but local has batches, sync them UP to Supabase!
+          this.syncAllLocalBatchesToSupabase();
         }
       }
 
       this.notifySync();
     } catch (e) {
       console.warn('Sync from Supabase failed, using local cache:', e);
+    }
+  }
+
+  // Push all local batches to Supabase Cloud
+  async syncAllLocalBatchesToSupabase() {
+    if (!this.supabaseClient || !this.isSupabaseConnected || this.session.batches.length === 0) return;
+
+    try {
+      const rows = this.session.batches.map(b => ({
+        id: b.id,
+        lottery_name: this.session.lotteryName,
+        lottery_date: this.session.lotteryDate,
+        website: b.website,
+        type: b.type,
+        type_name: b.typeName,
+        numbers: b.numbers,
+        badge_text: b.badgeText,
+        count: b.count,
+        created_at: b.createdAt
+      }));
+
+      const { error } = await this.supabaseClient.from('lottery_batches').upsert(rows);
+      if (!error) {
+        console.log('Synced local batches up to Supabase Cloud:', rows.length);
+        this.notifyCloudSave({ type: 'sync_up', count: rows.length });
+      }
+    } catch (e) {
+      console.warn('Error syncing local batches up to Supabase:', e);
     }
   }
 
@@ -268,7 +367,7 @@ class LotteryStorage {
   }
 
   // ==========================================
-  // Lottery Names Management
+  // Lottery Names Management (บันทึกขึ้น Supabase ทุกครั้ง)
   // ==========================================
   async addLotteryName(name) {
     if (!name || !name.trim()) return false;
@@ -277,13 +376,20 @@ class LotteryStorage {
       this.lotteryList.push(trimmed);
       this.saveLocalLotteryList();
 
-      // Async save to Supabase
-      if (this.supabaseClient && this.isSupabaseConnected) {
+      // บันทึกลง Supabase ทันที
+      if (this.supabaseClient) {
         this.supabaseClient
           .from('lottery_names')
-          .insert([{ name: trimmed }])
-          .then(() => {})
-          .catch(err => console.warn('Supabase insert lottery_name error:', err));
+          .upsert([{ name: trimmed }])
+          .then(({ error }) => {
+            if (error) {
+              console.warn('Supabase insert lottery_name error:', error.message);
+            } else {
+              this.isSupabaseConnected = true;
+              this.notifyCloudSave({ type: 'name_add', name: trimmed });
+            }
+          })
+          .catch(err => console.warn('Supabase insert lottery_name network error:', err));
       }
       return true;
     }
@@ -303,20 +409,26 @@ class LotteryStorage {
       this.saveLocalSession();
     }
 
-    // Async delete from Supabase
-    if (this.supabaseClient && this.isSupabaseConnected) {
+    // ลบออกจาก Supabase ทันที
+    if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_names')
         .delete()
         .eq('name', name)
-        .then(() => {})
-        .catch(err => console.warn('Supabase delete lottery_name error:', err));
+        .then(({ error }) => {
+          if (error) {
+            console.warn('Supabase delete lottery_name error:', error.message);
+          } else {
+            this.notifyCloudSave({ type: 'name_delete', name });
+          }
+        })
+        .catch(err => console.warn('Supabase delete lottery_name network error:', err));
     }
     return true;
   }
 
   // ==========================================
-  // Batch Numbers Management
+  // Batch Numbers Management (บันทึกขึ้น Supabase ทุกครั้ง)
   // ==========================================
   addBatch({ website, type, numbers, badgeText = '' }) {
     if (!numbers || numbers.length === 0) return null;
@@ -362,8 +474,8 @@ class LotteryStorage {
 
     this.saveLocalSession();
 
-    // Async upsert to Supabase
-    if (this.supabaseClient && this.isSupabaseConnected) {
+    // บันทึก/อัปเดตลง Supabase Cloud ทันทีทุกครั้ง
+    if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_batches')
         .upsert({
@@ -378,8 +490,16 @@ class LotteryStorage {
           count: savedBatch.count,
           created_at: savedBatch.createdAt
         })
-        .then(() => {})
-        .catch(err => console.warn('Supabase upsert batch error:', err));
+        .then(({ error }) => {
+          if (error) {
+            console.error('Supabase upsert batch error:', error.message);
+          } else {
+            this.isSupabaseConnected = true;
+            this.notifyStatusChange();
+            this.notifyCloudSave({ type: 'batch_save', batch: savedBatch });
+          }
+        })
+        .catch(err => console.warn('Supabase upsert batch network error:', err));
     }
 
     return savedBatch;
@@ -389,13 +509,20 @@ class LotteryStorage {
     this.session.batches = this.session.batches.filter(b => b.id !== batchId);
     this.saveLocalSession();
 
-    if (this.supabaseClient && this.isSupabaseConnected) {
+    // ลบออกจาก Supabase Cloud ทันที
+    if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_batches')
         .delete()
         .eq('id', batchId)
-        .then(() => {})
-        .catch(err => console.warn('Supabase delete batch error:', err));
+        .then(({ error }) => {
+          if (error) {
+            console.error('Supabase delete batch error:', error.message);
+          } else {
+            this.notifyCloudSave({ type: 'batch_delete', batchId });
+          }
+        })
+        .catch(err => console.warn('Supabase delete batch network error:', err));
     }
   }
 
@@ -406,14 +533,21 @@ class LotteryStorage {
     this.session.batches = [];
     this.saveLocalSession();
 
-    if (this.supabaseClient && this.isSupabaseConnected) {
+    // ล้างข้อมูลใน Supabase Cloud ทันที
+    if (this.supabaseClient) {
       this.supabaseClient
         .from('lottery_batches')
         .delete()
         .eq('lottery_name', lotName)
         .eq('lottery_date', lotDate)
-        .then(() => {})
-        .catch(err => console.warn('Supabase clear batches error:', err));
+        .then(({ error }) => {
+          if (error) {
+            console.error('Supabase clear batches error:', error.message);
+          } else {
+            this.notifyCloudSave({ type: 'clear_batches', lotteryName: lotName, lotteryDate: lotDate });
+          }
+        })
+        .catch(err => console.warn('Supabase clear batches network error:', err));
     }
   }
 
